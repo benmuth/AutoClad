@@ -1,6 +1,8 @@
 import json
 from os import listdir
 from copy import copy
+import sys
+import shutil
 
 relics = [
     "WHETSTONE",
@@ -215,18 +217,38 @@ class Scenario:
         self.floor = floor
         self.deck = deck
         # map of relics to their counters (None if they don't have a counter)
-        self.relics = {}
+        self.relics = []
         self.max_hp = 0
         self.current_hp = 0
         self.encounter = None
         self.potions = (None, None, None, None, None)
 
 
-runs = [f for f in listdir("2019-runs-json")]
+# runs = [f for f in listdir("2019-runs-json")]
 
-for file_name in listdir("2019-runs-json"):
+# dir = input("enter a directory name: ")
+
+initial_deck = [
+    "STRIKE",
+    "STRIKE",
+    "STRIKE",
+    "STRIKE",
+    "STRIKE",
+    "DEFEND",
+    "DEFEND",
+    "DEFEND",
+    "DEFEND",
+    "BASH",
+]
+
+dir = sys.argv[1]
+
+for file_name in listdir(dir):
+    # for each file describing a run, we're creating a list of derived scenarios
     run_scenarios = []
-    with open("2019-runs-json/" + file_name, "r") as f:
+
+    with open(dir + file_name, "r") as f:
+        print(file_name)
         content = json.load(f)
 
         campfire_choices = content["campfire_choices"]
@@ -241,5 +263,68 @@ for file_name in listdir("2019-runs-json"):
         boss_relics = content["boss_relics"]
 
         if character_chosen != "IRONCLAD":
-            print("skipping ", character_chosen, " run")
+            print(f"skipping {character_chosen} run!")
             continue
+
+        for choice in card_choices:
+            if len(run_scenarios) > 0:
+                deck = copy(run_scenarios[-1].deck)
+            else:
+                deck = copy(initial_deck)
+
+            scenario = Scenario(choice["floor"], deck)
+            run_scenarios.append(scenario)
+            deck.append(choice["picked"])
+
+        for event in event_choices:
+            if "cards_removed" in event:
+                for scenario in run_scenarios:
+                    if event["floor"] < scenario.floor:
+                        for card_removed in event["cards_removed"]:
+                            if "strike" in card_removed.lower():
+                                print("removing STRIKE")
+                                scenario.deck.remove("STRIKE")
+                            elif "defend " in card_removed.lower():
+                                print("removing DEFEND")
+                                scenario.deck.remove("DEFEND")
+                            else:
+                                print(f"removing {card_removed}")
+                                scenario.deck.remove(card_removed)
+
+            if "cards_obtained" in event:
+                for scenario in run_scenarios:
+                    if event["floor"] < scenario.floor:
+                        for card_obtained in event["cards_obtained"]:
+                            print(f"adding {card_obtained}")
+                            scenario.deck.append(card_obtained)
+
+        for relic in relics_obtained:
+            floor = relic["floor"]
+            for scenario in run_scenarios:
+                if scenario.floor > floor:
+                    scenario.relics.append(relic["key"])
+
+        for purchase in zip(item_purchase_floors, items_purchased):
+            for scenario in run_scenarios:
+                if scenario.floor > purchase[0]:
+                    scenario.deck.append(purchase[1])
+
+            # print("purchase", purchase)
+
+        # for scenario in run_scenarios:
+        #     print(scenario.deck)
+        #     print(scenario.relics)
+
+        print('')
+        print('last scenario deck', sorted(sorted(run_scenarios[-1].deck)))
+        print('')
+        print('master scenario deck', sorted(sorted(content["master_deck"])))
+        print('\n')
+        print('last scenario relics', sorted(sorted(run_scenarios[-1].relics)))
+        print('')
+        print('master scenario relics', sorted(sorted(content["relics"])))
+        print('\n')
+
+        assert sorted(run_scenarios[-1].deck) == sorted(content["master_deck"])
+
+        break
