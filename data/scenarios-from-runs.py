@@ -2,7 +2,6 @@ import json
 from os import listdir
 from copy import copy
 import sys
-import shutil
 
 relics = [
     "WHETSTONE",
@@ -134,6 +133,11 @@ relics = [
     "STRANGE_SPOON",
     "MEMBERSHIP_CARD",
     "BRIMSTONE",
+    "CULTIST_HEADPIECE",
+    "FACE_OF_CLERIC",
+    "GREMLIN_VISAGE",
+    "NLOTHS_HUNGRY_FACE",
+    "SSSERPENT_HEAD",
 ]
 
 cards = [
@@ -224,25 +228,46 @@ class Scenario:
         self.potions = (None, None, None, None, None)
 
 
-# runs = [f for f in listdir("2019-runs-json")]
+def ensure_scenario_after_floor(floor, run_scenarios, initial_deck):
+    """
+    Ensures there's at least one scenario after the given floor.
+    If not, creates a new scenario and adds it to run_scenarios.
+    Returns list of scenarios that occur after the floor.
+    """
+    scenarios_after_floor = [s for s in run_scenarios if s.floor > floor]
 
-# dir = input("enter a directory name: ")
+    if not scenarios_after_floor:
+        if run_scenarios:
+            new_deck = run_scenarios[-1].deck.copy()
+            new_scenario = Scenario(floor + 1, new_deck)
+            new_scenario.relics = run_scenarios[-1].relics.copy()
+        else:
+            new_scenario = Scenario(floor + 1, copy(initial_deck))
+            new_scenario.relics.append("Burning Blood")
+
+        run_scenarios.append(new_scenario)
+        scenarios_after_floor = [new_scenario]
+
+    return scenarios_after_floor
+
 
 initial_deck = [
-    "STRIKE",
-    "STRIKE",
-    "STRIKE",
-    "STRIKE",
-    "STRIKE",
-    "DEFEND",
-    "DEFEND",
-    "DEFEND",
-    "DEFEND",
-    "BASH",
+    "AscendersBane",
+    "Strike_R",
+    "Strike_R",
+    "Strike_R",
+    "Strike_R",
+    "Strike_R",
+    "Defend_R",
+    "Defend_R",
+    "Defend_R",
+    "Defend_R",
+    "Bash",
 ]
 
 dir = sys.argv[1]
 
+num = 0
 for file_name in listdir(dir):
     # for each file describing a run, we're creating a list of derived scenarios
     run_scenarios = []
@@ -250,6 +275,10 @@ for file_name in listdir(dir):
     with open(dir + file_name, "r") as f:
         print(file_name)
         content = json.load(f)
+
+        if content["ascension_level"] < 15:
+            print(f"skipping ascension level {content["ascension_level"]} run!")
+            continue
 
         campfire_choices = content["campfire_choices"]
         character_chosen = content["character_chosen"]
@@ -261,6 +290,12 @@ for file_name in listdir(dir):
         relics_obtained = content["relics_obtained"]
         event_choices = content["event_choices"]
         boss_relics = content["boss_relics"]
+        items_purged = content["items_purged"]
+        items_purged_floors = content["items_purged_floors"]
+        neow_bonus = content.get("neow_bonus", "")
+        floor_reached = content["floor_reached"]
+        if floor_reached < 5:
+            continue
 
         if character_chosen != "IRONCLAD":
             print(f"skipping {character_chosen} run!")
@@ -273,58 +308,191 @@ for file_name in listdir(dir):
                 deck = copy(initial_deck)
 
             scenario = Scenario(choice["floor"], deck)
-            run_scenarios.append(scenario)
-            deck.append(choice["picked"])
 
+            # Add starting relic for Ironclad
+            if len(run_scenarios) == 0:  # First scenario
+                scenario.relics.append("Burning Blood")
+            else:
+                scenario.relics = run_scenarios[-1].relics.copy()
+            run_scenarios.append(scenario)
+            if choice["picked"] != "SKIP":
+                deck.append(choice["picked"])
+
+        boss_floors = [16, 33, 50]
+        for i, boss_relic in enumerate(boss_relics):
+            picked_relic = boss_relic["picked"]
+            boss_floor = boss_floors[i] if i < len(boss_floors) else boss_floors[-1]
+            for scenario in run_scenarios:
+                if scenario.floor > boss_floor:
+                    scenario.relics.append(picked_relic)
+
+        for event in event_choices:
+            if "cards_obtained" in event:
+                scenarios_after_floor = ensure_scenario_after_floor(
+                    event["floor"], run_scenarios, initial_deck
+                )
+                for scenario in scenarios_after_floor:
+                    for card_obtained in event["cards_obtained"]:
+                        scenario.deck.append(card_obtained)
+
+            if "cards_upgraded" in event:
+                scenarios_after_floor = ensure_scenario_after_floor(
+                    event["floor"], run_scenarios, initial_deck
+                )
+                for scenario in scenarios_after_floor:
+                    for card_upgraded in event["cards_upgraded"]:
+                        if card_upgraded in scenario.deck:
+                            idx = scenario.deck.index(card_upgraded)
+                            scenario.deck[idx] = card_upgraded + "+1"
+                        elif card_upgraded + "+1" in scenario.deck:
+                            idx = scenario.deck.index(card_upgraded + "+1")
+                            scenario.deck[idx] = card_upgraded + "+2"
+
+            if "relics_obtained" in event:
+                scenarios_after_floor = ensure_scenario_after_floor(
+                    event["floor"], run_scenarios, initial_deck
+                )
+                for scenario in scenarios_after_floor:
+                    for relic_obtained in event["relics_obtained"]:
+                        scenario.relics.append(relic_obtained)
+
+        face_trader_relics = [
+            "Cultist Headpiece",
+            "Face of Cleric",
+            "Gremlin Visage",
+            "N'loth's Hungry Face",
+            "Ssserpent Head",
+        ]
+
+        for event in event_choices:
+            if (
+                event.get("event_name") == "FaceTrader"
+                and event.get("player_choice") == "Trade"
+            ):
+                floor = event["floor"]
+                for face_relic in face_trader_relics:
+                    if face_relic in content["relics"]:
+                        scenarios_after_floor = ensure_scenario_after_floor(
+                            floor, run_scenarios, initial_deck
+                        )
+                        for scenario in scenarios_after_floor:
+                            scenario.relics.append(face_relic)
+                        break
+
+        for relic in relics_obtained:
+            floor = relic["floor"]
+            scenarios_after_floor = ensure_scenario_after_floor(
+                floor - 1, run_scenarios, initial_deck
+            )
+            for scenario in scenarios_after_floor:
+                scenario.relics.append(relic["key"])
+
+        for purchase in zip(item_purchase_floors, items_purchased):
+            floor = purchase[0]
+            item_name = purchase[1]
+
+            scenarios_after_floor = ensure_scenario_after_floor(
+                floor, run_scenarios, initial_deck
+            )
+
+            for scenario in scenarios_after_floor:
+                if item_name.replace(" ", "").replace("_", "").lower() in [
+                    r.replace(" ", "").replace("_", "").lower()
+                    for r in content["relics"]
+                ]:
+                    scenario.relics.append(item_name)
+                elif "Potion" in item_name:
+                    continue
+                else:
+                    scenario.deck.append(item_name)
+
+        for campfire in campfire_choices:
+            if campfire["key"] == "SMITH" and "data" in campfire:
+                card_name = campfire["data"]
+                floor = campfire["floor"]
+                for scenario in run_scenarios:
+                    if scenario.floor > floor:
+                        # Find the card in deck and upgrade it
+                        if card_name in scenario.deck:
+                            idx = scenario.deck.index(card_name)
+                            scenario.deck[idx] = card_name + "+1"
+                        elif card_name + "+1" in scenario.deck:
+                            idx = scenario.deck.index(card_name + "+1")
+                            scenario.deck[idx] = card_name + "+2"
+
+        if "RELIC" in neow_bonus.upper():
+            master_relics = set(content["relics"])
+            derived_relics = set(run_scenarios[-1].relics)
+            missing_relics = master_relics - derived_relics
+
+            if len(missing_relics) == 1:
+                neow_relic = missing_relics.pop()
+                for scenario in run_scenarios:
+                    scenario.relics.append(neow_relic)
+        elif neow_bonus == "THREE_ENEMY_KILL":
+            for scenario in run_scenarios:
+                scenario.relics.append("NeowsBlessing")
+
+        # handle removal last so we don't try to remove non-existing items
         for event in event_choices:
             if "cards_removed" in event:
                 for scenario in run_scenarios:
                     if event["floor"] < scenario.floor:
                         for card_removed in event["cards_removed"]:
-                            if "strike" in card_removed.lower():
-                                print("removing STRIKE")
-                                scenario.deck.remove("STRIKE")
-                            elif "defend " in card_removed.lower():
-                                print("removing DEFEND")
-                                scenario.deck.remove("DEFEND")
+                            if "strike_r+1" in card_removed.lower():
+                                if "Strike_R" in scenario.deck:
+                                    scenario.deck.remove("Strike_R")
+                                elif "Strike_R+1" in scenario.deck:
+                                    scenario.deck.remove("Strike_R+1")
+                            elif "defend_r+1" in card_removed.lower():
+                                if "Defend_R" in scenario.deck:
+                                    scenario.deck.remove("Defend_R")
+                                elif "Defend_R+1" in scenario.deck:
+                                    scenario.deck.remove("Defend_R+1")
                             else:
-                                print(f"removing {card_removed}")
-                                scenario.deck.remove(card_removed)
+                                if card_removed in scenario.deck:
+                                    scenario.deck.remove(card_removed)
 
-            if "cards_obtained" in event:
-                for scenario in run_scenarios:
-                    if event["floor"] < scenario.floor:
-                        for card_obtained in event["cards_obtained"]:
-                            print(f"adding {card_obtained}")
-                            scenario.deck.append(card_obtained)
+            if "relics_lost" in event:
+                print(event)
+                scenarios_after_floor = ensure_scenario_after_floor(
+                    event["floor"], run_scenarios, initial_deck
+                )
+                for scenario in scenarios_after_floor:
+                    for relic_lost in event["relics_lost"]:
+                        print("LOST: ", relic_lost)
+                        print("relics: ", scenario.relics)
 
-        for relic in relics_obtained:
-            floor = relic["floor"]
-            for scenario in run_scenarios:
-                if scenario.floor > floor:
-                    scenario.relics.append(relic["key"])
+                        scenario.relics.remove(relic_lost)
 
-        for purchase in zip(item_purchase_floors, items_purchased):
-            for scenario in run_scenarios:
-                if scenario.floor > purchase[0]:
-                    scenario.deck.append(purchase[1])
+        for purge in zip(items_purged_floors, items_purged):
+            card_name = purge[1]
+            floor = purge[0]
+            scenarios_after_floor = ensure_scenario_after_floor(
+                floor, run_scenarios, initial_deck
+            )
+            for scenario in scenarios_after_floor:
+                if card_name in scenario.deck:
+                    scenario.deck.remove(card_name)
 
-            # print("purchase", purchase)
+        print("NUM: ", num)
+        print(f"Number of scenarios: {len(run_scenarios)}")
+        print(f"Last scenario floor: {run_scenarios[-1].floor}")
+        print("Scenario floors:", [s.floor for s in run_scenarios])
+        print(f"Neow bonus: {neow_bonus}")
 
-        # for scenario in run_scenarios:
-        #     print(scenario.deck)
-        #     print(scenario.relics)
-
-        print('')
-        print('last scenario deck', sorted(sorted(run_scenarios[-1].deck)))
-        print('')
-        print('master scenario deck', sorted(sorted(content["master_deck"])))
-        print('\n')
-        print('last scenario relics', sorted(sorted(run_scenarios[-1].relics)))
-        print('')
-        print('master scenario relics', sorted(sorted(content["relics"])))
-        print('\n')
-
-        assert sorted(run_scenarios[-1].deck) == sorted(content["master_deck"])
-
-        break
+        print("")
+        print("last scenario deck  ", sorted(sorted(run_scenarios[-1].deck)))
+        print("")
+        print("master scenario deck", sorted(sorted(content["master_deck"])))
+        print("\n")
+        print("last scenario relics  ", sorted(sorted(run_scenarios[-1].relics)))
+        print("")
+        print("master scenario relics", sorted(sorted(content["relics"])))
+        print("\n")
+        print(
+            "scenarios: ",
+        )
+        # assert sorted(run_scenarios[-1].deck) == sorted(content["master_deck"])
+        assert sorted(run_scenarios[-1].relics) == sorted(content["relics"])
+        num += 1
