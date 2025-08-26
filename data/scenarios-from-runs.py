@@ -555,13 +555,15 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 dir = sys.argv[1]
-output_dir = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith('--') else None
-force_delete = '--force' in sys.argv
+output_dir = (
+    sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else None
+)
+force_delete = "--force" in sys.argv
 
 if output_dir:
     clear_output_directory(output_dir, force_delete)
 
-num = 0
+# num = 0
 for file_name in listdir(dir):
     try:
         # for each file describing a run, we're creating a list of derived scenarios
@@ -801,8 +803,8 @@ for file_name in listdir(dir):
                     created_files.append(filename)
                 print(f"Created {len(created_files)} scenario files for this run")
 
+            # num += 1
+
     except Exception as e:
         print(f"error: {e}")
         continue
-
-        num += 1
