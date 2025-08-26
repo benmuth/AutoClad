@@ -200,6 +200,24 @@ new-scenario name:
     @echo '{\n    "name": "{{name}}",\n    "description": "Description here",\n    "seed": 12345,\n    "ascension": 0,\n    "floor": 1,\n    "initial_state": {\n        "player_hp": 80,\n        "player_max_hp": 80,\n        "character_class": "IRONCLAD",\n        "encounter": "CULTIST",\n        "deck": ["STRIKE", "STRIKE", "STRIKE", "STRIKE", "STRIKE", "DEFEND", "DEFEND", "DEFEND", "DEFEND", "BASH"],\n        "relics": [],\n        "potions": []\n    },\n    "action_sequence": ["play_card_0", "end_turn"]\n}' > tests/scenarios/{{name}}.json
     @echo "Created tests/scenarios/{{name}}.json"
 
+# === Scenario Generation Commands ===
+
+# Generate scenario objects from run data (analysis only)
+generate-scenarios-analysis input_dir:
+    uv run data/scenarios-from-runs.py {{input_dir}}
+
+# Generate scenario files from run data
+generate-scenarios input_dir output_dir:
+    uv run data/scenarios-from-runs.py {{input_dir}} {{output_dir}}
+
+# Generate scenarios from ironclad runs to battle/generated_scenarios/
+generate-scenarios-ironclad:
+    uv run data/scenarios-from-runs.py data/2019-runs-json-ironclad/ battle/generated_scenarios/
+
+# Generate scenarios from ironclad runs to battle/generated_scenarios/ (force delete existing files)
+generate-scenarios-ironclad-force:
+    uv run data/scenarios-from-runs.py data/2019-runs-json-ironclad/ battle/generated_scenarios/ --force
+
 # Example recipes for common development workflows
 example-workflow:
     @echo "Example development workflow:"
