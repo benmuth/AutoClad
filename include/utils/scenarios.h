@@ -232,25 +232,31 @@ inline std::vector<GameContext> loadScenariosFromDirectory(const std::string& di
     try {
         for (const auto& entry : std::filesystem::directory_iterator(directoryPath)) {
             if (entry.path().extension() == ".json") {
-                std::ifstream file(entry.path());
-                if (file.is_open()) {
-                    nlohmann::json scenario;
-                    file >> scenario;
+                try {
+                    std::ifstream file(entry.path());
+                    if (file.is_open()) {
+                        nlohmann::json scenario;
+                        file >> scenario;
 
-                    // Generate a seed based on scenario name hash or use a default
-                    std::uint64_t seed = 12345;
-                    if (scenario.contains("name")) {
-                        std::string name = scenario["name"];
-                        seed = std::hash<std::string>{}(name);
+                        // Generate a seed based on scenario name hash or use a default
+                        std::uint64_t seed = 12345;
+                        if (scenario.contains("name")) {
+                            std::string name = scenario["name"];
+                            seed = std::hash<std::string>{}(name);
+                        }
+                        GameContext gc = createGameContextFromScenario(scenario, seed);
+                        gameContexts.push_back(gc);
                     }
-                    GameContext gc = createGameContextFromScenario(scenario, seed);
-                    gameContexts.push_back(gc);
+                } catch (const std::exception& e) {
+                    // Log the error for this specific file and continue
+                    std::cerr << "Error loading scenario file " << entry.path() << ": " << e.what() << std::endl;
+                    continue;
                 }
             }
         }
     } catch (const std::exception& e) {
-        // Handle filesystem or JSON parsing errors
-        // For now, just return empty vector
+        // Handle filesystem errors
+        std::cerr << "Error accessing directory " << directoryPath << ": " << e.what() << std::endl;
     }
 
     return gameContexts;

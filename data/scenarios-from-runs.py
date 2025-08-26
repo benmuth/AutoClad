@@ -433,7 +433,7 @@ def ensure_scenario_after_floor(floor, run_scenarios, initial_deck):
 
 
 initial_deck = [
-    "AscendersBane",
+    # "AscendersBane",
     "Strike_R",
     "Strike_R",
     "Strike_R",
@@ -447,7 +447,7 @@ initial_deck = [
 ]
 
 
-def create_scenario_file(scenario, output_dir, run_index, scenario_index):
+def create_scenario_file(scenario, output_dir, run_filename, scenario_index):
     """Create a scenario JSON file from a scenario object."""
     max_hp = random.randint(30, 200)
     player_hp = random.randint(1, max_hp)
@@ -493,10 +493,15 @@ def create_scenario_file(scenario, output_dir, run_index, scenario_index):
         else:
             converted_relics.append(converted_relic)
 
+    # Extract run number from filename (e.g., "1546376628.json" -> "1546376628")
+    run_number = run_filename.replace(".json", "")
+
     scenario_data = {
-        "name": f"Generated Run {run_index} Floor {scenario.floor}",
-        "description": f"Auto-generated scenario from run data (run {run_index}, scenario {scenario_index})",
+        "name": f"Generated Run {run_number} Floor {scenario.floor}",
+        "description": f"Auto-generated scenario from run data (run {run_number}, scenario {scenario_index})",
         "floor": scenario.floor,
+        "seed": 12345,
+        "ascension": 0,
         "initial_state": {
             "player_hp": player_hp,
             "player_max_hp": max_hp,
@@ -511,7 +516,7 @@ def create_scenario_file(scenario, output_dir, run_index, scenario_index):
     if relic_counters:
         scenario_data["initial_state"]["relic_counters"] = relic_counters
 
-    filename = f"generated_run{run_index}_floor{scenario.floor}_{scenario_index}.json"
+    filename = f"generated_run{run_number}_floor{scenario.floor}_{scenario_index}.json"
     filepath = os.path.join(output_dir, filename)
 
     with open(filepath, "w") as f:
@@ -798,7 +803,7 @@ for file_name in listdir(dir):
                 created_files = []
                 for scenario_index, scenario in enumerate(run_scenarios):
                     filename = create_scenario_file(
-                        scenario, output_dir, num, scenario_index
+                        scenario, output_dir, file_name, scenario_index
                     )
                     created_files.append(filename)
                 print(f"Created {len(created_files)} scenario files for this run")
