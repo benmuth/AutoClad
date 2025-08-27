@@ -596,11 +596,16 @@ for file_name in listdir(dir):
             items_purged_floors = content["items_purged_floors"]
             neow_bonus = content.get("neow_bonus", "")
             floor_reached = content["floor_reached"]
+            relics = content["relics"]
             if floor_reached < 5:
                 continue
 
             if character_chosen != "IRONCLAD":
                 print(f"skipping {character_chosen} run!")
+                continue
+
+            if any("prism" in r.lower() for r in relics):
+                print("skipping PrismaticShard run!")
                 continue
 
             for choice in card_choices:
