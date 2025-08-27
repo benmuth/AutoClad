@@ -274,7 +274,7 @@ inline bool isDefendCard(CardId id) {
            id == CardId::DEFEND_BLUE || id == CardId::DEFEND_PURPLE;
 }
 
-inline std::string formatBattleSnapshot(const GameContext& gc, const BattleContext& initialBc, const BattleContext& finalBc, const std::string& scenarioName = "Agent Battle", const std::string& agentName = "Unknown") {
+inline std::string formatBattleSnapshot(const GameContext& gc, const BattleContext& initialBc, const BattleContext& finalBc, const std::string& scenarioName = "Agent Battle", const std::string& agentName = "Unknown", const std::vector<std::string>& actionSequence = {}) {
     std::stringstream snapshot;
 
     // Header
@@ -330,6 +330,16 @@ inline std::string formatBattleSnapshot(const GameContext& gc, const BattleConte
     snapshot << "  Player HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp << std::endl;
     snapshot << "  Relics: " << formatRelicsForSnapshot(finalBc.player) << std::endl;
     snapshot << "  Turns: " << finalBc.turn << std::endl;
+
+    // Action sequence
+    if (!actionSequence.empty()) {
+        snapshot << "  Action Sequence (" << actionSequence.size() << " actions): ";
+        for (size_t i = 0; i < actionSequence.size(); ++i) {
+            if (i > 0) snapshot << " -> ";
+            snapshot << actionSequence[i];
+        }
+        snapshot << std::endl;
+    }
 
     // RNG counters for determinism verification
     snapshot << "  RNG Counters: shuffle=" << finalBc.shuffleRng.counter 

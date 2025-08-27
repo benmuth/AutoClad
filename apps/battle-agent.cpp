@@ -95,6 +95,9 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
     // Run the agent battle simulation
     agent.playoutBattle(finalBc);
 
+    // Get action sequence after battle
+    auto actionSequence = agent.getActionSequence();
+
     // Report results
     std::cout << "  Battle Result: ";
     switch (finalBc.outcome) {
@@ -111,12 +114,22 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
     std::cout << " (Final HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp
                   << ", Turns: " << finalBc.turn << ")" << std::endl;
 
+    // Print action sequence
+    if (!actionSequence.empty()) {
+        std::cout << "  Action Sequence (" << actionSequence.size() << " actions): ";
+        for (size_t i = 0; i < actionSequence.size(); ++i) {
+            if (i > 0) std::cout << " -> ";
+            std::cout << actionSequence[i];
+        }
+        std::cout << std::endl;
+    }
+
     // Generate snapshot if requested
     if (generateSnapshot && !snapshotDir.empty()) {
         std::string agentName = getAgentName(a);
         std::string encounterName = monsterEncounterStrings[static_cast<int>(gc.info.encounter)];
         std::string scenarioName = agentName + "_vs_" + encounterName + "_" + std::to_string(gc.seed);
-        std::string snapshot = utils::formatBattleSnapshot(gc, initialBc, finalBc, scenarioName, agentName);
+        std::string snapshot = utils::formatBattleSnapshot(gc, initialBc, finalBc, scenarioName, agentName, actionSequence);
 
         std::string filename = scenarioName + ".snap";
         std::string filepath = snapshotDir + "/" + filename;

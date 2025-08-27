@@ -22,6 +22,7 @@
 #include <thread>
 #include <mutex>
 #include <vector>
+#include <sstream>
 
 using namespace sts;
 
@@ -880,6 +881,44 @@ void agentMtRunner(SimpleAgentInfo *info) {
     }
 }
 
+
+std::vector<std::string> search::SimpleAgent::getActionSequence() const {
+    std::vector<std::string> sequence;
+    for (int actionBits : actionHistory) {
+        Action action(actionBits);
+        std::ostringstream desc;
+
+        switch (action.getActionType()) {
+            case ActionType::CARD:
+                desc << "play_card_" << action.getSourceIdx();
+                if (action.getTargetIdx() != -1) {
+                    desc << "_target_" << action.getTargetIdx();
+                }
+                break;
+            case ActionType::POTION:
+                desc << "use_potion_" << action.getSourceIdx();
+                if (action.getTargetIdx() != -1) {
+                    desc << "_target_" << action.getTargetIdx();
+                }
+                break;
+            case ActionType::END_TURN:
+                desc << "end_turn";
+                break;
+            case ActionType::SINGLE_CARD_SELECT:
+                desc << "select_card_" << action.getSelectIdx();
+                break;
+            case ActionType::MULTI_CARD_SELECT:
+                desc << "select_cards_" << action.getSelectIdx();
+                break;
+            default:
+                desc << "unknown_action_" << static_cast<int>(action.getActionType());
+                break;
+        }
+
+        sequence.push_back(desc.str());
+    }
+    return sequence;
+}
 
 void search::SimpleAgent::runAgentsMt(int threadCount, std::uint64_t startSeed, int playoutCount, bool print) {
     auto startTime = std::chrono::high_resolution_clock::now();

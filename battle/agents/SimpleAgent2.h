@@ -41,6 +41,9 @@ namespace sts::search {
 
         bool playPotion(BattleContext &bc);
         static void runAgentsMt(int threadCount, std::uint64_t startSeed, int playoutCount, bool print);
+
+        // Get action sequence as a simple list of action descriptions
+        std::vector<std::string> getActionSequence() const;
     };
 
 }
