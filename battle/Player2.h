@@ -40,9 +40,6 @@ namespace sts {
         int8_t energyPerTurn = 3;
         int8_t cardDrawPerTurn = 5; // AbstractPlayer gameHandSize
 
-        Stance stance = Stance::NEUTRAL;
-        int8_t orbSlots = 0;
-
         // for spire spear/shield
         std::int8_t lastTargetedMonster = 1;
 
@@ -72,8 +69,6 @@ namespace sts {
         bool haveUsedNecronomiconThisTurn = false;
 
         int8_t  combustHpLoss = 0;
-        int16_t  devaFormEnergyPerTurn = 0;
-        int8_t  echoFormCardsDoubled = 0;
         int8_t  panacheCounter = 0;
 
         int16_t  cardsPlayedThisTurn = 0;
