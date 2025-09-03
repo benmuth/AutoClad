@@ -53,12 +53,12 @@ test-small:
     ./{{BUILD_DIR}}/small-test
 
 # Run multi-threaded agent test (threads, depth, ascension, seed, count, print)
-test-agent threads depth ascension seed count print="true":
+test-agent threads depth ascension seed count print="1":
     just build
     ./{{BUILD_DIR}}/test agent_mt {{threads}} {{depth}} {{ascension}} {{seed}} {{count}} {{print}}
 
 # Run simple agent test (threads, seed, count, print)
-test-simple-agent threads seed count print="true":
+test-simple-agent threads seed count print="1":
     just build
     ./{{BUILD_DIR}}/test simple_agent_mt {{threads}} {{seed}} {{count}} {{print}}
 
