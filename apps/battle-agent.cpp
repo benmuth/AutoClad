@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <cctype>
 
-#include "../battle/BattleContext2.h"
-#include "../battle/GameContext2.h"
-#include "../battle/agents/SimpleAgent2.h"
-#include "../battle/agents/AutoClad.h"
+#include "BattleContext2.h"
+#include "GameContext2.h"
+#include "SimpleAgent2.h"
+#include "AutoClad.h"
 #include "../include/utils/scenarios.h"
 #include "../include/constants/MonsterEncounters.h"
 

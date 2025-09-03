@@ -5,8 +5,8 @@
 #ifndef STS_LIGHTSPEED_SIMPLEAGENT_H
 #define STS_LIGHTSPEED_SIMPLEAGENT_H
 
-#include "../GameContext2.h"
-#include "../Action2.h"
+#include "GameContext2.h"
+#include "Action2.h"
 // #include "sim/search/GameAction.h"
 
 // Forward declarations to avoid conflicts

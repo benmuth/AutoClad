@@ -5,8 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include "../battle/GameContext2.h"
-#include "../battle/BattleContext2.h"
+#include "GameContext2.h"
+#include "BattleContext2.h"
 #include "../constants/MonsterEncounters.h"
 #include "../constants/Cards.h"
 #include "../constants/Relics.h"

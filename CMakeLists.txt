@@ -44,59 +44,59 @@ target_include_directories(small-test PUBLIC json/include)
 
 # Create a minimal source list for battle executable (only essential files)
 set(sts_battle_minimal_SOURCES
-    "battle/Monster2.cpp"
-    "battle/MonsterGroup2.cpp"
-    "battle/MonsterMoveDamage2.cpp"
-    "battle/MonsterSpecific2.cpp"
-    "battle/Actions2.cpp"
-    "battle/CardQueue2.cpp"
-    "battle/CardInstance2.cpp"
+    "battle/src/Monster2.cpp"
+    "battle/src/MonsterGroup2.cpp"
+    "battle/src/MonsterMoveDamage2.cpp"
+    "battle/src/MonsterSpecific2.cpp"
+    "battle/src/Actions2.cpp"
+    "battle/src/CardQueue2.cpp"
+    "battle/src/CardInstance2.cpp"
     "src/game/Card.cpp"
 )
 
 add_executable(battle
-    battle/main.cpp
-    battle/FightDefinition.cpp
-    battle/BattleContext2.cpp
-    battle/GameContext2.cpp
-    battle/CardManager2.cpp
-    battle/Game2.cpp
-    battle/Deck2.cpp
-    battle/Player2.cpp
+    battle/src/main.cpp
+    battle/src/FightDefinition.cpp
+    battle/src/BattleContext2.cpp
+    battle/src/GameContext2.cpp
+    battle/src/CardManager2.cpp
+    battle/src/Game2.cpp
+    battle/src/Deck2.cpp
+    battle/src/Player2.cpp
     ${sts_battle_minimal_SOURCES}
 )
 target_link_directories(battle PRIVATE json::nlohmann_json)
-target_include_directories(battle PUBLIC battle)
+target_include_directories(battle PUBLIC battle/include)
 target_include_directories(battle PUBLIC include)
 target_include_directories(battle PUBLIC json/include)
 
 # Create battle-agent source list (minimal sources needed for battle agent)
 set(sts_battle_agent_SOURCES
-    "battle/Monster2.cpp"
-    "battle/MonsterGroup2.cpp"
-    "battle/MonsterMoveDamage2.cpp"
-    "battle/MonsterSpecific2.cpp"
-    "battle/Actions2.cpp"
-    "battle/CardQueue2.cpp"
-    "battle/CardInstance2.cpp"
+    "battle/src/Monster2.cpp"
+    "battle/src/MonsterGroup2.cpp"
+    "battle/src/MonsterMoveDamage2.cpp"
+    "battle/src/MonsterSpecific2.cpp"
+    "battle/src/Actions2.cpp"
+    "battle/src/CardQueue2.cpp"
+    "battle/src/CardInstance2.cpp"
     "src/game/Card.cpp"
     "src/sim/SimHelpers.cpp"
 )
 
 add_executable(battle-agent
     apps/battle-agent.cpp
-    battle/BattleContext2.cpp
-    battle/GameContext2.cpp
-    battle/CardManager2.cpp
-    battle/Game2.cpp
-    battle/Deck2.cpp
-    battle/Player2.cpp
-    battle/agents/SimpleAgent2.cpp
-    battle/agents/AutoClad.cpp
-    battle/Action2.cpp
+    battle/src/BattleContext2.cpp
+    battle/src/GameContext2.cpp
+    battle/src/CardManager2.cpp
+    battle/src/Game2.cpp
+    battle/src/Deck2.cpp
+    battle/src/Player2.cpp
+    battle/src/SimpleAgent2.cpp
+    battle/src/AutoClad.cpp
+    battle/src/Action2.cpp
     ${sts_battle_agent_SOURCES}
 )
 target_link_directories(battle-agent PRIVATE json::nlohmann_json)
-target_include_directories(battle-agent PUBLIC battle)
+target_include_directories(battle-agent PUBLIC battle/include)
 target_include_directories(battle-agent PUBLIC include)
 target_include_directories(battle-agent PUBLIC json/include)
