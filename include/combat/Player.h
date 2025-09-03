@@ -40,6 +40,9 @@ namespace sts {
         int8_t energyPerTurn = 3;
         int8_t cardDrawPerTurn = 5; // AbstractPlayer gameHandSize
 
+        Stance stance = Stance::NEUTRAL;
+        int8_t orbSlots = 0;
+
         // for spire spear/shield
         std::int8_t lastTargetedMonster = 1;
 
@@ -62,12 +65,14 @@ namespace sts {
         int8_t  happyFlowerCounter = 0;
         int8_t  incenseBurnerCounter = 0;
         int8_t  inkBottleCounter = 0;
+        int8_t  inserterCounter = 0;
         int8_t  nunchakuCounter = 0;
         int8_t  penNibCounter = 0;
         int8_t  sundialCounter = 0;
         bool haveUsedNecronomiconThisTurn = false;
 
         int8_t  combustHpLoss = 0;
+        int16_t  devaFormEnergyPerTurn = 0;
         int8_t  panacheCounter = 0;
 
         int16_t  cardsPlayedThisTurn = 0;
@@ -75,6 +80,7 @@ namespace sts {
         int16_t skillsPlayedThisTurn = 0;
         std::bitset<3> orangePelletsCardTypesPlayed;
         int16_t cardsDiscardedThisTurn = 0;
+        int16_t echoFormCardsDoubled = 0;
 
         // currently unused
         int16_t lastAttackUnblockedDamage = 0;
@@ -124,6 +130,9 @@ namespace sts {
         void gainGold(BattleContext &bc, int amount);
         void useEnergy(int amount);
         void gainEnergy(int amount);
+        void increaseOrbSlots(int amount);
+        void channelOrb(Orb orb);
+        [[nodiscard]] bool hasEmptyOrb() const;
 
         void applyEndOfTurnPowers(BattleContext &bc);
         void applyAtEndOfRoundPowers();
