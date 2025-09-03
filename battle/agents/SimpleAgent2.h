@@ -33,7 +33,7 @@ namespace sts::search {
 
         // void takeAction(GameContext &gc, GameAction a);
         void takeAction(BattleContext &bc, Action a);
-        void playoutBattle(BattleContext &bc);
+        void playoutBattle(BattleContext &bc, std::stringstream* snapshot = nullptr);
 
         // stepBattleCardPlay is the function that chooses the card to play
         virtual void stepBattleCardPlay(BattleContext &bc);

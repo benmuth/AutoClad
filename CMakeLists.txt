@@ -44,13 +44,13 @@ target_include_directories(small-test PUBLIC json/include)
 
 # Create a minimal source list for battle executable (only essential files)
 set(sts_battle_minimal_SOURCES
-    "src/combat/Monster.cpp"
-    "src/combat/MonsterGroup.cpp"
-    "src/combat/MonsterMoveDamage.cpp"
-    "src/combat/MonsterSpecific.cpp"
-    "src/combat/Actions.cpp"
-    "src/combat/CardQueue.cpp"
-    "src/combat/CardInstance.cpp"
+    "battle/Monster2.cpp"
+    "battle/MonsterGroup2.cpp"
+    "battle/MonsterMoveDamage2.cpp"
+    "battle/MonsterSpecific2.cpp"
+    "battle/Actions2.cpp"
+    "battle/CardQueue2.cpp"
+    "battle/CardInstance2.cpp"
     "src/game/Card.cpp"
 )
 
@@ -72,13 +72,13 @@ target_include_directories(battle PUBLIC json/include)
 
 # Create battle-agent source list (minimal sources needed for battle agent)
 set(sts_battle_agent_SOURCES
-    "src/combat/Monster.cpp"
-    "src/combat/MonsterGroup.cpp"
-    "src/combat/MonsterMoveDamage.cpp"
-    "src/combat/MonsterSpecific.cpp"
-    "src/combat/Actions.cpp"
-    "src/combat/CardQueue.cpp"
-    "src/combat/CardInstance.cpp"
+    "battle/Monster2.cpp"
+    "battle/MonsterGroup2.cpp"
+    "battle/MonsterMoveDamage2.cpp"
+    "battle/MonsterSpecific2.cpp"
+    "battle/Actions2.cpp"
+    "battle/CardQueue2.cpp"
+    "battle/CardInstance2.cpp"
     "src/game/Card.cpp"
     "src/sim/SimHelpers.cpp"
 )

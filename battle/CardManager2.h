@@ -10,7 +10,7 @@
 
 #include "sts_common.h"
 
-#include "combat/CardInstance.h"
+#include "CardInstance2.h"
 #include "game/Random.h"
 #include "Deck2.h"
 

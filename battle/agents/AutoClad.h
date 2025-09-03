@@ -6,12 +6,11 @@
 #define STS_LIGHTSPEED_AUTOCLAD_H
 
 #include <cstdint>
-#include <deque>
 #include <mutex>
 #include "../GameContext2.h"
 #include "../BattleContext2.h"
 #include "../Action2.h"
-#include "../../include/combat/CardInstance.h"
+#include "../CardInstance2.h"
 #include "SimpleAgent2.h"
 
 namespace sts {

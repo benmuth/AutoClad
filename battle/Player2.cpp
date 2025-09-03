@@ -6,7 +6,7 @@
 
 #include <constants/PlayerStatusEffects.h>
 #include "BattleContext2.h"
-#include <combat/Actions.h>
+#include "Actions2.h"
 #include "Player2.h"
 
 using namespace sts;
@@ -27,9 +27,6 @@ bool Player::hasStatusRuntime(PlayerStatus s) const {
 
         case PS::DEXTERITY:
             return dexterity;
-
-        case PS::FOCUS:
-            return focus;
 
         case PS::STRENGTH:
             return strength;
@@ -52,8 +49,6 @@ int Player::getStatusRuntime(PlayerStatus s) const {
             return artifact;
         case PS::DEXTERITY:
             return dexterity;
-        case PS::FOCUS:
-            return focus;
         case PS::STRENGTH:
             return strength;
         default:
@@ -75,8 +70,6 @@ void Player::gainBlock(BattleContext &bc, int amount) {
     if (hasStatus<PS::JUGGERNAUT>()) {
         bc.addToBot(Actions::DamageRandomEnemy(getStatus<PS::JUGGERNAUT>()));
     }
-
-    // todo watcher weak power
 }
 
 void Player::gainGold(BattleContext &bc, int amount) {
@@ -106,18 +99,6 @@ void Player::gainEnergy(int amount) {
     energy += amount;
 }
 
-void Player::increaseOrbSlots(int amount) {
-    // todo
-}
-
-void Player::channelOrb(Orb orb) {
-    // todo
-}
-
-bool Player::hasEmptyOrb() const {
-    return false;
-}
-
 void Player::removeDebuffs() {
     if (getStatus<PS::STRENGTH>() < 0) {
         setStatusValueNoChecks<PS::STRENGTH>(0);
@@ -126,7 +107,6 @@ void Player::removeDebuffs() {
         setStatusValueNoChecks<PS::DEXTERITY>(0);
     }
 
-    removeStatus<PS::BIAS>();
     removeStatus<PS::CONFUSED>();
     removeStatus<PS::CONSTRICTED>();
 
@@ -136,7 +116,6 @@ void Player::removeDebuffs() {
     }
 
     removeStatus<PS::ENTANGLED>();
-    removeStatus<PS::FASTING>();
     removeStatus<PS::FRAIL>();
     removeStatus<PS::HEX>();
     removeStatus<PS::LOSE_DEXTERITY>();
@@ -145,7 +124,6 @@ void Player::removeDebuffs() {
     removeStatus<PS::NO_DRAW>();
     removeStatus<PS::VULNERABLE>();
     removeStatus<PS::WEAK>();
-    removeStatus<PS::WRAITH_FORM>();
 }
 
 void Player::increaseMaxHp(int amount) {
@@ -185,8 +163,6 @@ void Player::damage(BattleContext &bc, const int calculatedDamage, const bool se
     const auto savedBlock = block;
     block = std::max(0, block-damage);
     damage -= savedBlock;
-
-
 
     damage -= block;
     if (damage > 0) {
@@ -296,10 +272,6 @@ void Player::hpWasLost(BattleContext &bc, int amount, bool selfDamage) {
         bc.addToTop( Actions::DrawCards(3) );
     }
 
-    if (hasRelic<RelicId::EMOTION_CHIP>()) {
-        // todo
-    }
-
     if (hasRelic<RelicId::SELF_FORMING_CLAY>()) {
         buff<PS::NEXT_TURN_BLOCK>(3);
     }
@@ -360,9 +332,6 @@ void Player::applyEndOfTurnPowers(BattleContext &bc) {
         }
 
         switch (pair.first) {
-            case PS::BURST:
-                bc.addToBot(Actions::RemoveStatus<PS::BURST>());
-                break;
 
             case PS::COMBUST:
                 if (!bc.monsters.areMonstersBasicallyDead()) {
@@ -387,10 +356,6 @@ void Player::applyEndOfTurnPowers(BattleContext &bc) {
                 // todo if card is ethereal set to retain
                 break;
 
-            case PS::ESTABLISHMENT:
-                // todo addToBot establishmentPowerAction
-                break;
-
             case PS::LOSE_DEXTERITY:
                 bc.addToBot(Actions::DebuffPlayer<PS::DEXTERITY>(-pair.second));
                 bc.addToBot(Actions::RemoveStatus<PS::LOSE_DEXTERITY>());
@@ -405,16 +370,8 @@ void Player::applyEndOfTurnPowers(BattleContext &bc) {
                 bc.addToBot(Actions::RemoveStatus<PS::NO_DRAW>());
                 break;
 
-            case PS::OMEGA:
-                bc.addToBot(Actions::DamageAllEnemy(pair.second));
-                break;
-
             case PS::RAGE:
                 removeStatus<PS::RAGE>();
-                break;
-
-            case PS::REBOUND:
-                bc.addToBot(Actions::RemoveStatus<PS::REBOUND>());
                 break;
 
             case PS::REGEN:
@@ -428,10 +385,6 @@ void Player::applyEndOfTurnPowers(BattleContext &bc) {
                 bc.addToBot(Actions::BuffPlayer<PS::STRENGTH>(pair.second));
                 break;
                 // case TheBomb
-
-            case PS::WRAITH_FORM: // todo does this debuff or just decrement?
-                bc.addToBot(Actions::DecrementStatus<PS::DEXTERITY>(pair.second));
-                break;
 
             default:
                 break;
@@ -452,19 +405,10 @@ void Player::applyAtEndOfRoundPowers() {
         decrementIfNotJustApplied<PS::WEAK>();
     }
 
-    // handling this later so it is not removed before block check
-//    if (hasStatusInternal<PS::BLUR>()) {
-//        decrementStatus<PS::BLUR>();
-//    }
-
     if (hasStatus<PS::DOUBLE_DAMAGE>()) {
         decrementIfNotJustApplied<PS::DOUBLE_DAMAGE>();
     }
 
-    // handle elsewhere
-//    if (hasStatusInternal<PS::DRAW_REDUCTION>()) {
-//        decrementStatus<PS::DRAW_REDUCTION>();
-//    }
 
     if (hasStatus<PS::DUPLICATION>()) {
         decrementStatus<PS::DUPLICATION>();
@@ -480,10 +424,6 @@ void Player::applyAtEndOfRoundPowers() {
 
     if (hasStatus<PS::NO_BLOCK>()) {
         decrementStatus<PS::NO_BLOCK>();
-    }
-
-    if (hasStatus<PS::WAVE_OF_THE_HAND>()) {
-        decrementStatus<PS::WAVE_OF_THE_HAND>();
     }
 }
 
@@ -510,15 +450,6 @@ void Player::applyStartOfTurnRelics(BattleContext &bc) {
         }
     }
 
-    if (hasRelic<R::DAMARU>()) {
-        bc.addToBot( Actions::BuffPlayer<PS::MANTRA>(1) );
-        // todo handle mantra change stance
-    }
-
-    if (hasRelic<R::EMOTION_CHIP>()) {
-        // todo if lost hp last turn addToBot(new ImpulseAction())
-    }
-
     if (hasRelic<R::HAPPY_FLOWER>()) {
         if (++happyFlowerCounter == 3) {
             happyFlowerCounter = 0;
@@ -536,15 +467,6 @@ void Player::applyStartOfTurnRelics(BattleContext &bc) {
         if (++incenseBurnerCounter == 6) {
             incenseBurnerCounter = 0;
             bc.addToBot( Actions::BuffPlayer<PS::INTANGIBLE>(1) );
-        }
-    }
-
-    if (hasRelic<R::INSERTER>()) {
-        if (++inserterCounter == 2) {
-            inserterCounter = 0; // todo
-            bc.addToBot( {[=](BattleContext &bc) {
-                bc.player.increaseOrbSlots(1);
-            }});
         }
     }
 
@@ -570,52 +492,8 @@ void Player::applyStartOfTurnPowers(BattleContext &bc) {
         }
 
         switch (pair.first) {
-            case PS::BATTLE_HYMN:
-                bc.addToBot(Actions::MakeTempCardInHand(CardId::SMITE, hasStatus<PS::MASTER_REALITY>(), pair.second) );
-                break;
-
-            case PS::BIAS:
-                bc.addToBot( Actions::DecrementStatus<PS::FOCUS>(pair.second) );
-                break;
-
-            case PS::CREATIVE_AI:
-//                bc.addToBot( Actions::SetState(InputState::CREATE_RANDOM_CARD_IN_HAND_POWER, pair.second) ); // todo
-                break;
-
-            case PS::ECHO_FORM:
-                echoFormCardsDoubled = 0;
-                break;
-
-            case PS::BLASPHEMER:
-                removeStatus<PS::BLASPHEMER>();
-                bc.addToBot( Actions::PlayerLoseHp(9999) );
-                break;
-
-            case PS::FASTING:
-                //  add energy dont need? just change energy per turn instead
-                break;
-
-            case PS::FORESIGHT:
-                if (bc.cards.drawPile.empty()) {
-                    bc.addToTop( Actions::SetState(InputState::SHUFFLE_DISCARD_TO_DRAW) );
-                }
-//                bc.addToBot( Actions::SetState(InputState::SCRY, pair.second) ); // tood
-                break;
-
             case PS::FLAME_BARRIER:
                 removeStatus<PS::FLAME_BARRIER>();
-                break;
-
-            case PS::HELLO_WORLD: // todo
-                removeStatus<PS::HELLO_WORLD>();
-                break;
-
-            case PS::INFINITE_BLADES:
-                bc.addToBot(Actions::MakeTempCardInHand(CardId::SHIV, hasStatus<PS::MASTER_REALITY>(), pair.second) );
-                break;
-
-            case PS::LOOP:
-                // todo do amount times : call orb[0].onStartOfTurn, orb[0].onEndOfTurn
                 break;
 
             case PS::MAGNETISM:
@@ -637,18 +515,6 @@ void Player::applyStartOfTurnPowers(BattleContext &bc) {
 
             case PS::PANACHE:
                 panacheCounter = 5;
-                break;
-
-            case PS::PHANTASMAL:
-                decrementStatus<PS::PHANTASMAL>();
-                bc.addToBot( Actions::BuffPlayer<PS::DOUBLE_DAMAGE>() );
-                break;
-
-                // time maze not used in standard modes
-
-            case PS::WRATH_NEXT_TURN:
-                removeStatus<PS::WRATH_NEXT_TURN>();
-                bc.addToBot( Actions::ChangeStance(Stance::WRATH) );
                 break;
 
             default:
@@ -688,22 +554,9 @@ void Player::applyStartOfTurnPostDrawPowers(BattleContext &bc) {
                 bc.addToBot( Actions::BuffPlayer<PS::STRENGTH>(pair.second) );
                 break;
 
-            case PS::DEVOTION: // the implementation of this is really weird in the game code
-                bc.addToBot( Actions::BuffPlayer<PS::MANTRA>(pair.second) ); // todo make buffing mantra switch stance
-                break;
-
             case PS::DRAW_CARD_NEXT_TURN:
                 bc.addToBot( Actions::DrawCards(pair.second) );
                 removeStatus<PS::DRAW_CARD_NEXT_TURN>();
-                break;
-
-            case PS::NOXIOUS_FUMES:
-                bc.addToBot( Actions::DebuffAllEnemy<MS::POISON>(pair.second) );
-                break;
-
-            case PS::TOOLS_OF_THE_TRADE:
-                bc.addToBot( Actions::DrawCards(pair.second) );
-//                bc.addToBot( Actions::SetState(InputState::CHOOSE_DISCARD_CARDS, pair.second) );
                 break;
 
             default:
@@ -723,16 +576,6 @@ void Player::rechargeEnergy(BattleContext &bc) {
     if (hasStatus<PS::COLLECT>()) {
         decrementStatus<PS::COLLECT>();
         bc.addToBot(Actions::MakeTempCardInHand(CardId::MIRACLE) );
-    }
-
-    if (hasStatus<PS::DEVA>()) {
-        gainEnergy(devaFormEnergyPerTurn);
-        devaFormEnergyPerTurn += getStatus<PS::DEVA>();
-    }
-
-    if (hasStatus<PS::ENERGIZED>()) {
-        gainEnergy(getStatus<PS::ENERGIZED>());
-        removeStatus<PS::ENERGIZED>();
     }
 }
 
@@ -819,8 +662,6 @@ namespace sts {
 
             << "\n\t" << "Status Counters: "
             << "" << "combustHpLoss: " << static_cast<int>(p.combustHpLoss)
-            << s << "devaFormEnergyPerTurn: " << static_cast<int>(p.devaFormEnergyPerTurn)
-            << s << "echoFormCardsDoubled: " << static_cast<int>(p.echoFormCardsDoubled)
             << s << "panacheCounter: " << static_cast<int>(p.panacheCounter)
             << s << "TheBomb: { 1=" << static_cast<int>(p.bomb1)
                 << ", 2=" << static_cast<int>(p.bomb2)

@@ -110,7 +110,6 @@ namespace sts {
         template <PlayerStatus> void buff(int amount=1);
         template <PlayerStatus> void debuff(int amount, bool isSourceMonster=true);
 
-        template <Stance> void changeStance();
 
         void removeDebuffs();
         void increaseMaxHp(int amount);
@@ -125,9 +124,6 @@ namespace sts {
         void gainGold(BattleContext &bc, int amount);
         void useEnergy(int amount);
         void gainEnergy(int amount);
-        void increaseOrbSlots(int amount);
-        void channelOrb(Orb orb);
-        [[nodiscard]] bool hasEmptyOrb() const;
 
         void applyEndOfTurnPowers(BattleContext &bc);
         void applyAtEndOfRoundPowers();
@@ -462,10 +458,6 @@ namespace sts {
         }
     }
 
-    template<Stance s>
-    void Player::changeStance() {
-        stance = s;
-    }
 
 
 }

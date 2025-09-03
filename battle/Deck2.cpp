@@ -6,7 +6,6 @@
 #include <algorithm>
 
 #include "Deck2.h"
-#include "combat/Player.h"
 #include "game/Random.h"
 #include "game/GameContext.h"
 #include "game/RelicContainer.h"

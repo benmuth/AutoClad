@@ -295,11 +295,6 @@ void BattleContext::initRelics(RelicContainer relics, sts::Room curRoom, sts::Ro
                 }
                 break;
 
-            case R::RING_OF_THE_SERPENT:
-                // now handled in battlecontext init
-//                p.cardDrawPerTurn++;
-                break;
-
             case R::SLAVERS_COLLAR:
                 if (room == Room::ELITE || room == Room::BOSS) { // todo this needs to be set by eliteTrigger maybe?
                     p.energyPerTurn++;
@@ -310,10 +305,6 @@ void BattleContext::initRelics(RelicContainer relics, sts::Room curRoom, sts::Ro
                 if (room == Room::ELITE) {
                     p.buff<PS::STRENGTH>(2);
                 }
-                break;
-
-            case R::SYMBIOTIC_VIRUS:
-                p.channelOrb(Orb::DARK);
                 break;
 
             case R::THREAD_AND_NEEDLE:
@@ -900,10 +891,7 @@ void BattleContext::useAttackCard() {
 
     // todo test vigor with multi attacks and necro/double tap
     switch (c.getId()) {
-        case CardId::STRIKE_RED:
-        case CardId::STRIKE_BLUE:
-        case CardId::STRIKE_GREEN:
-        case CardId::STRIKE_PURPLE: {
+        case CardId::STRIKE_RED: {
             addToBot( Actions::AttackEnemy(t, calculateCardDamage(c, t, up ? 9 : 6)) );
             break;
         }
@@ -1144,9 +1132,6 @@ void BattleContext::useSkillCard() {
 
     switch (c.getId()) {
         case CardId::DEFEND_RED:
-        case CardId::DEFEND_BLUE:
-        case CardId::DEFEND_GREEN:
-        case CardId::DEFEND_PURPLE:
             addToBot( Actions::GainBlock(calculateCardBlock(up ? 8 : 5)) );
             break;
 
@@ -1524,11 +1509,6 @@ void BattleContext::usePowerCard() {
             addToBot( Actions::BuffPlayer<PS::SADISTIC>(up ? 7 : 5) );
             break;
 
-        case CardId::WRAITH_FORM:
-            addToBot( Actions::BuffPlayer<PS::INTANGIBLE>(up ? 3 : 2) );
-            addToBot( Actions::DebuffPlayer<PS::WRAITH_FORM>(1) );
-            break;
-
         default:
 #ifdef sts_asserts
             std::cerr << "attempted to use unimplemented card: " << c.getName() << std::endl;
@@ -1549,10 +1529,6 @@ void BattleContext::onUseAttackCard() {
 
     // ********* Powers onUseCard *********
 
-    if (p.hasStatus<PS::AFTER_IMAGE>()) {
-        addToBot(Actions::GainBlock(p.getStatus<PS::AFTER_IMAGE>()));
-    }
-
     if (!item.purgeOnUse && p.hasStatus<PS::DOUBLE_TAP>()) {
         queuePurgeCard(c, item.target);
         p.decrementStatus<PS::DOUBLE_TAP>();
@@ -1561,15 +1537,6 @@ void BattleContext::onUseAttackCard() {
     if (!item.purgeOnUse && p.hasStatus<PS::DUPLICATION>()) {
         queuePurgeCard(c, item.target);
         p.decrementStatus<PS::DUPLICATION>();
-    }
-
-    const auto echoForm = p.getStatus<PS::ECHO_FORM>();
-    if (!item.purgeOnUse && echoForm) {
-        const bool echoFormActive = player.cardsPlayedThisTurn - player.echoFormCardsDoubled <= echoForm;
-        if (echoFormActive) {
-            ++player.echoFormCardsDoubled;
-            queuePurgeCard(c, item.target);
-        }
     }
 
     if (p.hasStatus<PS::PANACHE>() && --p.panacheCounter <= 0) {
@@ -1638,10 +1605,6 @@ void BattleContext::onUseAttackCard() {
         }
     }
 
-    if (p.hasRelic<R::DUALITY>()) {
-        addToBot(Actions::DualityAction());
-    }
-
     if (p.hasRelic<R::NUNCHAKU>()) {
         if (++p.nunchakuCounter >= 10) {
             addToBot(Actions::GainEnergy(1));
@@ -1675,27 +1638,9 @@ void BattleContext::onUseSkillCard() {
 
     // ********* Powers onUseCard *********
 
-    if (p.hasStatus<PS::AFTER_IMAGE>()) {
-        addToBot(Actions::GainBlock(p.getStatus<PS::AFTER_IMAGE>()));
-    }
-
-    if (!item.purgeOnUse && p.hasStatus<PS::BURST>()) {
-        queuePurgeCard(c, item.target);
-        p.decrementStatus<PS::BURST>();
-    }
-
     if (!item.purgeOnUse && p.hasStatus<PS::DUPLICATION>()) {
         queuePurgeCard(c, item.target);
         p.decrementStatus<PS::DUPLICATION>();
-    }
-
-    const auto echoForm = p.getStatus<PS::ECHO_FORM>();
-    if (!item.purgeOnUse && echoForm) {
-        const bool echoFormActive = player.cardsPlayedThisTurn - player.echoFormCardsDoubled <= echoForm;
-        if (echoFormActive) {
-            ++player.echoFormCardsDoubled;
-            queuePurgeCard(c, item.target);
-        }
     }
 
     if (p.hasStatus<PS::HEX>()) {
@@ -1768,15 +1713,6 @@ void BattleContext::onUsePowerCard() {
         p.decrementStatus<PS::DUPLICATION>();
     }
 
-    const auto echoForm = p.getStatus<PS::ECHO_FORM>();
-    if (!item.purgeOnUse && echoForm) {
-        const bool echoFormActive = player.cardsPlayedThisTurn - player.echoFormCardsDoubled <= echoForm;
-        if (echoFormActive) {
-            ++player.echoFormCardsDoubled;
-            queuePurgeCard(c, item.target);
-        }
-    }
-
     if (p.hasStatus<PS::HEX>()) {
         addToBot( Actions::MakeTempCardInDrawPile(CardInstance(CardId::DAZED), 1, true) );
     }
@@ -1822,22 +1758,9 @@ void BattleContext::onUseStatusOrCurseCard() {
     auto &c = item.card;
     auto &p = player;
 
-    if (p.hasStatus<PS::AFTER_IMAGE>()) {
-        addToBot(Actions::GainBlock(p.getStatus<PS::AFTER_IMAGE>()));
-    }
-
     if (!item.purgeOnUse && p.hasStatus<PS::DUPLICATION>()) {
         queuePurgeCard(c, item.target);
         p.decrementStatus<PS::DUPLICATION>();
-    }
-
-    const auto echoForm = p.getStatus<PS::ECHO_FORM>();
-    if (!item.purgeOnUse && echoForm) {
-        const bool echoFormActive = player.cardsPlayedThisTurn - player.echoFormCardsDoubled <= echoForm;
-        if (echoFormActive) {
-            ++player.echoFormCardsDoubled;
-            queuePurgeCard(c, item.target);
-        }
     }
 
     if (p.hasStatus<PS::HEX>()) {
@@ -1969,16 +1892,6 @@ void BattleContext::callEndOfTurnActions() {
 
     // ********************* Player Relics OnPlayerEndTurn *********************
 
-    if (player.hasRelic<R::CLOAK_CLASP>()) {
-        addToBot( Actions::GainBlock(cards.cardsInHand) );
-    }
-
-    if (player.hasRelic<R::FROZEN_CORE>()) {
-        if (player.hasEmptyOrb()) {
-            player.channelOrb(Orb::FROST);
-        }
-    }
-
     if (player.hasRelic<R::NILRYS_CODEX>()) {
         addToBot(Actions::CodexAction());
     }
@@ -2003,14 +1916,6 @@ void BattleContext::callEndOfTurnActions() {
 
     if (player.hasStatus<PS::PLATED_ARMOR>()) {
         addToBot( Actions::GainBlock(player.getStatus<PS::PLATED_ARMOR>()) );
-    }
-
-    if (player.hasStatus<PS::LIKE_WATER>() && player.stance == Stance::CALM) {
-        addToBot( Actions::GainBlock(player.getStatus<PS::LIKE_WATER>()) );
-    }
-
-    if (player.orbSlots) {
-        addToBot(Actions::TriggerEndOfTurnOrbsAction());
     }
 
     // todo for cards in hand call triggerOnEndOfTurnForPlayingCard
@@ -2095,11 +2000,6 @@ void BattleContext::afterMonsterTurns() {
     skipMonsterTurn = false;
     turnHasEnded = false;
 
-    // player stance atStartOfTurn
-    if (player.stance == Stance::DIVINITY) {
-        addToBot(Actions::ChangeStance(Stance::NEUTRAL));
-    }
-
     player.applyStartOfTurnRelics(*this);
 
     // player applyStartOfTurnPreDrawCards() // no cards implement this
@@ -2112,9 +2012,6 @@ void BattleContext::afterMonsterTurns() {
     //if have relic cables: apply orb[0].OnStartOfTurn again
 
     if (player.hasStatus<PS::BARRICADE>()) {
-
-    } else if (player.hasStatus<PS::BLUR>()) {
-        player.decrementStatus<PS::BLUR>();
 
     } else if (player.hasRelic<R::CALIPERS>()) {
         player.block = std::max(0, player.block-15);
@@ -2180,14 +2077,6 @@ void BattleContext::drinkPotion(int idx, int target) {
     // todo - dont need to add to bot because always will have nothing in actionQueue?
 
     switch (p) {
-        case Potion::AMBROSIA:
-            addToBot(Actions::ChangeStance(Stance::DIVINITY));
-            break;
-
-        case Potion::ANCIENT_POTION:
-            addToBot(Actions::BuffPlayer<PS::ARTIFACT>(hasBark ? 2 : 1));
-            break;
-
         case Potion::ATTACK_POTION:
             addToBot(Actions::DiscoveryAction(CardType::ATTACK, hasBark ? 2 : 1));
             break;
@@ -2206,10 +2095,6 @@ void BattleContext::drinkPotion(int idx, int target) {
             addToBot(Actions::HealPlayer(healAmt));
             break;
         }
-
-        case Potion::BOTTLED_MIRACLE:
-            addToBot(Actions::MakeTempCardInHand(CardId::MIRACLE, false, hasBark ? 4 : 2));
-            break;
 
         case Potion::COLORLESS_POTION:
             addToBot( Actions::DiscoveryAction(CardType::STATUS, hasBark ? 2 : 1) ); // status card type is being used to indicate colorless
@@ -2255,10 +2140,6 @@ void BattleContext::drinkPotion(int idx, int target) {
             break;
         }
 
-        case Potion::ESSENCE_OF_DARKNESS:
-            addToBot( Actions::EssenceOfDarkness(hasBark ? 2 : 1) );
-            break;
-
         case Potion::ESSENCE_OF_STEEL:
             addToBot( Actions::BuffPlayer<PS::PLATED_ARMOR>(hasBark ? 8 : 4) );
             break;
@@ -2294,10 +2175,6 @@ void BattleContext::drinkPotion(int idx, int target) {
             addToBot( Actions::GambleAction() );
             break;
 
-        case Potion::GHOST_IN_A_JAR:
-            addToBot(Actions::BuffPlayer<PS::INTANGIBLE>(hasBark ? 2 : 1));
-            break;
-
         case Potion::HEART_OF_IRON:
             addToBot(Actions::BuffPlayer<PS::METALLICIZE>(hasBark ? 12 : 6));
             break;
@@ -2308,14 +2185,6 @@ void BattleContext::drinkPotion(int idx, int target) {
 
         case Potion::LIQUID_MEMORIES:
             addToBot( Actions::BetterDiscardPileToHandAction(hasBark ? 2 : 1, CardSelectTask::LIQUID_MEMORIES_POTION) );
-            break;
-
-        case Potion::POISON_POTION:
-            addToBot( Actions::DebuffEnemy<MS::POISON>(target, hasBark ? 12 : 6) );
-            break;
-
-        case Potion::POTION_OF_CAPACITY:
-            addToBot( Actions::IncreaseOrbSlots(hasBark ? 4 : 2) );
             break;
 
         case Potion::POWER_POTION:
@@ -2597,11 +2466,6 @@ void BattleContext::triggerOnOtherCardPlayed(const CardInstance &usedCard) {
     for (int i = 0; i < painCount; ++i) {
         addToTop(Actions::PlayerLoseHp(1));
     }
-
-    const auto thousandCuts = player.getStatus<PS::THOUSAND_CUTS>();
-    if (thousandCuts) {
-        addToBot(Actions::DamageAllEnemy(thousandCuts));
-    }
 }
 
 int BattleContext::calculateCardDamage(const CardInstance &card, int targetIdx, int baseDamage) const {
@@ -2613,11 +2477,6 @@ int BattleContext::calculateCardDamage(const CardInstance &card, int targetIdx, 
     if (player.hasRelic<R::STRIKE_DUMMY>() && card.isStrikeCard()) {
         damage += 3;
     }
-
-    if (player.hasRelic<R::WRIST_BLADE>() && card.costForTurn == 0) {
-        damage += 4;
-    }
-
 
     // ****** Player Powers AtDamageGive ******
 
@@ -2637,14 +2496,6 @@ int BattleContext::calculateCardDamage(const CardInstance &card, int targetIdx, 
 
     if (player.hasStatus<PS::WEAK>()) {
         damage *= .75f;
-    }
-
-    // ****** Stance AtDamageGive ******
-
-    if (player.stance == Stance::WRATH) {
-        damage *= 2;
-    } else if (player.stance == Stance::DIVINITY) {
-        damage *= 3;
     }
 
     // ****** Enemy Powers AtDamageReceive ******
