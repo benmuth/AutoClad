@@ -228,7 +228,6 @@ void search::SimpleAgent::playoutBattle(BattleContext &bc, std::stringstream* sn
         // relic counters
         if (snapshot && bc.inputState == InputState::PLAYER_NORMAL) {
             *snapshot << bc << std::endl;
-            *snapshot << bc.player << std::endl;
             *snapshot << "turn:" << bc.turn
                      << ",health:" << bc.player.curHp
                      << ",maxhealth:" << bc.player.maxHp
