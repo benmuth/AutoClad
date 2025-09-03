@@ -36,7 +36,7 @@ class CardGameNet(nn.Module):
             nn.Linear(hidden_size1, hidden_size2),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(hidden_size2, 5)  # 5 hand positions
+            nn.Linear(hidden_size2, 6)  # 5 hand positions + 1 end turn action
             # Note: No softmax here - CrossEntropyLoss applies it internally
         )
         
@@ -64,42 +64,24 @@ def prepare_data(raw_states, raw_actions):
     
     return normalized_states, actions, scaler
 
-def create_feature_vector(player_health, enemy_health, cards_in_hand, active_effects, num_total_cards=75):
-    """
-    Convert game state to feature vector
+def load_jaw_worm_data():
+    """Load the processed Jaw Worm battle data."""
+    import numpy as np
     
-    Args:
-        player_health: int
-        enemy_health: int  
-        cards_in_hand: list of card IDs [23, 45, 12, 67, 3]
-        active_effects: list of active effect IDs
-        num_total_cards: total number of possible cards
+    try:
+        # Load the preprocessed data
+        data = np.load('jaw_worm_data.npz')
+        states = data['states']
+        actions = data['actions']
         
-    Returns:
-        feature vector as list
-    """
-    features = []
-    
-    # Health values
-    features.extend([player_health, enemy_health])
-    
-    # One-hot encode cards in hand (5 cards × 75 possible cards = 375 features)
-    hand_encoding = [0] * (5 * num_total_cards)
-    for position, card_id in enumerate(cards_in_hand):
-        if card_id is not None:  # Handle cases with fewer than 5 cards
-            hand_encoding[position * num_total_cards + card_id] = 1
-    features.extend(hand_encoding)
-    
-    # One-hot encode active effects (you'll need to define max_effects)
-    # This is a simplified version - you'll need to adapt based on your game
-    max_effects = 10  # Adjust based on your game
-    effect_encoding = [0] * max_effects
-    for effect_id in active_effects[:max_effects]:  # Truncate if too many
-        if effect_id < max_effects:
-            effect_encoding[effect_id] = 1
-    features.extend(effect_encoding)
-    
-    return features
+        print(f"Loaded {len(states)} state-action pairs from Jaw Worm battles")
+        print(f"Feature vector size: {states.shape[1]}")
+        
+        return states, actions
+        
+    except FileNotFoundError:
+        print("jaw_worm_data.npz not found. Please run data_parser.py first.")
+        return None, None
 
 def train_model(model, train_loader, val_loader, num_epochs=50):
     """Train the neural network"""
@@ -169,8 +151,8 @@ def make_prediction(model, game_state, scaler):
         scaler: fitted StandardScaler from training
         
     Returns:
-        predicted_position: which hand position to play (0-4)
-        probabilities: confidence scores for each position
+        predicted_action: which action to take (0-4: hand positions, 5: end turn)
+        probabilities: confidence scores for each action (0-4: hand positions, 5: end turn)
     """
     model.eval()
     
@@ -181,32 +163,22 @@ def make_prediction(model, game_state, scaler):
     with torch.no_grad():
         outputs = model(state_tensor)
         probabilities = torch.softmax(outputs, dim=1)
-        _, predicted_position = torch.max(outputs, 1)
+        _, predicted_action = torch.max(outputs, 1)
     
-    return predicted_position.item(), probabilities[0].numpy()
+    return predicted_action.item(), probabilities[0].numpy()
 
 # Example usage:
 if __name__ == "__main__":
-    # Example of how to use this framework
+    # Load real Jaw Worm battle data
+    print("Loading Jaw Worm battle data...")
+    raw_states, raw_actions = load_jaw_worm_data()
     
-    # 1. Prepare your data (you'll replace this with your actual data loading)
-    # This is just dummy data to show the structure
-    dummy_states = []
-    dummy_actions = []
+    if raw_states is None or raw_actions is None:
+        print("Failed to load data. Exiting.")
+        exit(1)
     
-    for _ in range(1000):  # Replace with your actual data
-        # Example game state
-        player_hp = np.random.randint(1, 100)
-        enemy_hp = np.random.randint(1, 100)
-        hand = [np.random.randint(0, 75) for _ in range(5)]
-        effects = [np.random.randint(0, 10) for _ in range(2)]
-        
-        feature_vector = create_feature_vector(player_hp, enemy_hp, hand, effects)
-        dummy_states.append(feature_vector)
-        dummy_actions.append(np.random.randint(0, 5))  # Random hand position
-    
-    # 2. Prepare data
-    states, actions, scaler = prepare_data(dummy_states, dummy_actions)
+    # 2. Prepare data (normalize features)
+    states, actions, scaler = prepare_data(raw_states, raw_actions)
     
     # 3. Create dataset and data loaders
     dataset = CardGameDataset(states, actions)
@@ -221,27 +193,32 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
     
     # 4. Create and train model
-    input_size = len(dummy_states[0])  # Size of your feature vector
+    input_size = states.shape[1]  # Size of feature vector from real data
     model = CardGameNet(input_size)
     
     print(f"Model created with input size: {input_size}")
     print(f"Training on {len(train_dataset)} examples")
     print("Starting training...")
     
-    train_model(model, train_loader, val_loader, num_epochs=20)
+    train_model(model, train_loader, val_loader, num_epochs=50)
     
     # 5. Save the model
     torch.save({
         'model_state_dict': model.state_dict(),
         'scaler': scaler,
         'input_size': input_size
-    }, 'card_game_model.pth')
+    }, 'jaw_worm_model.pth')
     
-    print("Model saved as 'card_game_model.pth'")
+    print("Model saved as 'jaw_worm_model.pth'")
     
     # 6. Example prediction
-    example_state = dummy_states[0]
-    predicted_pos, probs = make_prediction(model, example_state, scaler)
+    example_state = raw_states[0]
+    predicted_action, probs = make_prediction(model, example_state, scaler)
+    action_names = ["Hand 0", "Hand 1", "Hand 2", "Hand 3", "Hand 4", "End Turn"]
     print(f"\nExample prediction:")
-    print(f"Predicted hand position: {predicted_pos}")
-    print(f"Confidence scores: {probs}")
+    print(f"Predicted action: {predicted_action} ({action_names[predicted_action]})")
+    print(f"Confidence scores:")
+    for i, (name, prob) in enumerate(zip(action_names, probs)):
+        marker = " ←" if i == predicted_action else ""
+        print(f"  {name}: {prob:.1%}{marker}")
+    print(f"Actual action was: {raw_actions[0]} ({action_names[raw_actions[0]]})")
