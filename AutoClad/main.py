@@ -211,6 +211,25 @@ if __name__ == "__main__":
     
     print("Model saved as 'jaw_worm_model.pth'")
     
+    # Export model to TorchScript for C++ usage
+    model.eval()
+    example_input = torch.randn(1, input_size)
+    traced_model = torch.jit.trace(model, example_input)
+    traced_model.save('jaw_worm_model_traced.pt')
+    
+    # Save scaler parameters for C++ normalization
+    import json
+    scaler_params = {
+        'mean': scaler.mean_.tolist(),
+        'scale': scaler.scale_.tolist(),
+        'input_size': input_size
+    }
+    with open('scaler_params.json', 'w') as f:
+        json.dump(scaler_params, f)
+    
+    print("TorchScript model saved as 'jaw_worm_model_traced.pt'")
+    print("Scaler parameters saved as 'scaler_params.json'")
+    
     # 6. Example prediction
     example_state = raw_states[0]
     predicted_action, probs = make_prediction(model, example_state, scaler)
