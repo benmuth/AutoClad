@@ -62,6 +62,20 @@ test-simple-agent threads seed count print="1":
     just build
     ./{{BUILD_DIR}}/test simple_agent_mt {{threads}} {{seed}} {{count}} {{print}}
 
+# Run neural network agent test (threads, seed, count, print) - requires LibTorch
+test-neural-agent threads seed count print="1":
+    just build-battle-agent
+    ./{{BUILD_DIR}}/test neural_agent_mt {{threads}} {{seed}} {{count}} {{print}}
+
+# Build with LibTorch support (set LIBTORCH_PATH environment variable)
+build-with-libtorch:
+    mkdir -p {{BUILD_DIR}}
+    cd {{BUILD_DIR}} && cmake -DCMAKE_PREFIX_PATH="${LIBTORCH_PATH}" .. && make battle-agent
+
+# Train neural network model and export for C++
+train-neural-model:
+    cd AutoClad && uv run main.py
+
 # Run MCTS test from save file
 test-mcts savefile simulations:
     just build
@@ -121,6 +135,26 @@ build-battle-agent:
     mkdir -p {{BUILD_DIR}}
     cd {{BUILD_DIR}} && cmake .. && make battle-agent
 
+# Run neural network agent on JAW_WORM scenarios (requires LibTorch)
+run-neural-agent:
+    LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
+    DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent
+
+# Test neural network agent on first 10 JAW_WORM scenarios (requires LibTorch)
+test-neural-agent-quick:
+    LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
+    DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent 2>/dev/null | head -50
+
+# Compare agent performance by running both SimpleAgent and NeuralNetAgent
+compare-agents:
+    @echo "Building both agents..."
+    just build
+    LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
+    @echo "Running SimpleAgent (first 5 scenarios)..."
+    ./{{BUILD_DIR}}/battle-agent 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
+    @echo "Running NeuralNetAgent (first 5 scenarios)..."
+    DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
+
 # Validate fight JSON syntax
 validate-fight-json fight_json:
     @echo "Validating JSON syntax for {{fight_json}}..."
@@ -171,6 +205,7 @@ executables:
     @echo "  test         - Comprehensive test runner with multiple commands"
     @echo "  small-test   - Minimal test executable for quick testing"
     @echo "  battle       - Standalone battle context simulator with SimpleAgent"
+    @echo "  battle-agent - Battle simulation with agents (SimpleAgent2, NeuralNetAgent if LibTorch available)"
     @echo ""
     @echo "Usage examples:"
     @echo "  just run            # Run interactive simulator"
@@ -184,6 +219,7 @@ test-help:
     @echo "Available test commands:"
     @echo "  agent_mt <threads> <depth> <ascension> <seed> <count> <print>"
     @echo "  simple_agent_mt <threads> <seed> <count> [print]"
+    @echo "  neural_agent_mt <threads> <seed> <count> [print]   # Requires LibTorch"
     @echo "  mcts_save <savefile> <simulations>"
     @echo "  save <savefile> <actionfile>"
     @echo "  replay <seed> <ascension> <actionfile>"

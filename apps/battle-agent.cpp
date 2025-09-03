@@ -6,6 +6,9 @@
 #include "GameContext2.h"
 #include "SimpleAgent2.h"
 #include "AutoClad.h"
+#ifdef NEURAL_NET_ENABLED
+#include "NeuralNetAgent.h"
+#endif
 #include "../include/utils/scenarios.h"
 #include "../include/constants/MonsterEncounters.h"
 
@@ -14,6 +17,9 @@ using namespace sts;
 enum class Agent {
   simple,
   autoclad,
+#ifdef NEURAL_NET_ENABLED
+  neural,
+#endif
 };
 
 std::string getAgentName(Agent a) {
@@ -22,6 +28,10 @@ std::string getAgentName(Agent a) {
             return "SimpleAgent";
         case Agent::autoclad:
             return "AutoClad";
+#ifdef NEURAL_NET_ENABLED
+        case Agent::neural:
+            return "NeuralNetAgent";
+#endif
         default:
             return "Unknown";
     }
@@ -71,16 +81,19 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
     // Copy for snapshot (capture initial state)
     BattleContext finalBc = initialBc;
 
-    // sts::search::AutoClad autoclad;
+    // Initialize agents based on selected type
     sts::search::SimpleAgent simple_agent;
+    sts::search::AutoClad autoclad;
+#ifdef NEURAL_NET_ENABLED
+    sts::search::NeuralNetAgent neural_agent;
+#endif
 
-    // search::SimpleAgent& agent = (a==Agent::simple ? simple_agent : autoclad);
-    search::SimpleAgent& agent = simple_agent;
-
-    // Create and configure the agent
-    // sts::search::SimpleAgent agent;
-
-    agent.print = false;
+    // Configure agents
+    simple_agent.print = false;
+    autoclad.print = false;
+#ifdef NEURAL_NET_ENABLED
+    neural_agent.print = false;
+#endif
 
     if (printDetails) {
         std::cout << "  AGENT: " << getAgentName(a) << std::endl;
@@ -94,27 +107,44 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
 
     std::stringstream snapshot;
 
-    // Run the agent battle simulation
-    agent.playoutBattle(finalBc, &snapshot);
+    // Run the agent battle simulation based on selected type
+    switch (a) {
+        case Agent::simple:
+            simple_agent.playoutBattle(finalBc, &snapshot);
+            break;
+        case Agent::autoclad:
+            autoclad.playoutBattle(finalBc, &snapshot);
+            break;
+#ifdef NEURAL_NET_ENABLED
+        case Agent::neural:
+            neural_agent.playoutBattle(finalBc, &snapshot);
+            break;
+#endif
+        default:
+            simple_agent.playoutBattle(finalBc, &snapshot);
+            break;
+    }
 
     // Get action sequence after battle
     // auto actionSequence = agent.getActionSequence();
 
     // Report results
-    // std::cout << "  Battle Result: ";
-    // switch (finalBc.outcome) {
-    //     case Outcome::PLAYER_VICTORY:
-    //         std::cout << "VICTORY";
-    //         break;
-    //     case Outcome::PLAYER_LOSS:
-    //         std::cout << "DEFEAT";
-    //         break;
-    //     default:
-    //         std::cout << "UNDECIDED";
-    //         break;
-    // }
-    // std::cout << " (Final HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp
-    //               << ", Turns: " << finalBc.turn << ")" << std::endl;
+    if (printDetails) {
+        std::cout << "  Battle Result: ";
+        switch (finalBc.outcome) {
+            case Outcome::PLAYER_VICTORY:
+                std::cout << "VICTORY";
+                break;
+            case Outcome::PLAYER_LOSS:
+                std::cout << "DEFEAT";
+                break;
+            default:
+                std::cout << "UNDECIDED";
+                break;
+        }
+        std::cout << " (Final HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp
+                  << ", Turns: " << finalBc.turn << ")" << std::endl;
+    }
 
     // Print action sequence
     // if (!actionSequence.empty()) {
@@ -144,8 +174,8 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
 }
 
 int main(int argc, char* argv[]) {
-    bool generateSnapshots = false;
-    std::string snapshotDir = "data/agent_battles";
+    bool generateSnapshots = true; // Always generate snapshots for neural network analysis
+    std::string snapshotDir = "data/agent_battles/nn";
     std::vector<std::string> scenarioFilters;
 
     // Parse command line arguments
@@ -189,9 +219,17 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "========================================" << std::endl;
 
-    // Run SimpleAgent on each scenario
+    // Run neural agent on each scenario (fallback to simple agent if neural not available)
+    Agent selectedAgent = Agent::simple;
+#ifdef NEURAL_NET_ENABLED
+    selectedAgent = Agent::neural;
+    std::cout << "Using NeuralNetAgent for battle simulations" << std::endl;
+#else
+    std::cout << "Using SimpleAgent for battle simulations (neural network not available)" << std::endl;
+#endif
+    
     for (const auto& gc : scenarios) {
-        runAgentOnScenario(Agent::simple, gc, true, generateSnapshots, snapshotDir);
+        runAgentOnScenario(selectedAgent, gc, true, generateSnapshots, snapshotDir);
     }
 
     std::cout << "All scenarios completed!" << std::endl;

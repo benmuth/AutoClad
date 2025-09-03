@@ -26,6 +26,10 @@
 
 #include "sim/search/BattleScumSearcher2.h"
 
+#ifdef NEURAL_NET_ENABLED
+#include "../battle/include/NeuralNetAgent.h"
+#endif
+
 using namespace sts;
 
 void printSizes() {
@@ -297,6 +301,20 @@ int main(int argc, const char* argv[]) {
         }
 
         search::SimpleAgent::runAgentsMt(threadCount, startSeedLong, playoutCount, print);
+
+    } else if (command == "neural_agent_mt") {
+#ifdef NEURAL_NET_ENABLED
+        const int threadCount(std::stoi(argv[2]));
+        const std::uint64_t startSeedLong(std::stoull(argv[3]));
+        const int playoutCount(std::stoi(argv[4]));
+        bool print = false;
+        if (argc > 5) {
+            print = true;
+        }
+        search::NeuralNetAgent::runAgentsMt(threadCount, startSeedLong, playoutCount, print);
+#else
+        std::cout << "Neural network agent not available - rebuild with LibTorch support" << std::endl;
+#endif
 
     } else if (command == "json") {
         const std::string saveFilePath(argv[2]);
