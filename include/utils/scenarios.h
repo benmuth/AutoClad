@@ -274,69 +274,68 @@ inline bool isDefendCard(CardId id) {
            id == CardId::DEFEND_BLUE || id == CardId::DEFEND_PURPLE;
 }
 
-inline std::string formatBattleSnapshot(const GameContext& gc, const BattleContext& initialBc, const BattleContext& finalBc, const std::string& scenarioName = "Agent Battle", const std::string& agentName = "Unknown") {
-    std::stringstream snapshot;
+inline std::string formatBattleSnapshot(const GameContext& gc, const BattleContext& initialBc, const BattleContext& finalBc, std::stringstream *snapshot, const std::string& scenarioName = "Agent Battle", const std::string& agentName = "Unknown" ) {
 
     // Header
-    snapshot << "=== COMBAT: \"" << scenarioName << "\" ===" << std::endl;
-    snapshot << "Agent: " << agentName << std::endl;
-    snapshot << "Seed: " << gc.seed << " | Ascension: " << gc.ascension 
+    *snapshot << "=== COMBAT: \"" << scenarioName << "\" ===" << std::endl;
+    *snapshot << "Agent: " << agentName << std::endl;
+    *snapshot << "Seed: " << gc.seed << " | Ascension: " << gc.ascension
              << " | Floor: " << gc.floorNum << std::endl << std::endl;
 
     // Initial State
-    snapshot << "Initial State:" << std::endl;
-    snapshot << "  Player: " << initialBc.player.curHp << "/" << initialBc.player.maxHp 
+    *snapshot << "Initial State:" << std::endl;
+    *snapshot << "  Player: " << initialBc.player.curHp << "/" << initialBc.player.maxHp
              << " HP, " << initialBc.player.energy << " Energy" << std::endl;
 
     // Format monster
     if (initialBc.monsters.monsterCount > 0) {
         const auto& monster = initialBc.monsters.arr[0];
-        snapshot << "  Enemy: " << monsterEncounterStrings[static_cast<int>(gc.info.encounter)]
+        *snapshot << "  Enemy: " << monsterEncounterStrings[static_cast<int>(gc.info.encounter)]
                  << " (" << monster.curHp << " HP)";
-        snapshot << std::endl;
+        *snapshot << std::endl;
     }
 
     // Format hand
-    snapshot << "  Hand: ";
+    *snapshot << "  Hand: ";
     for (int i = 0; i < initialBc.cards.cardsInHand; ++i) {
-        if (i > 0) snapshot << ", ";
+        if (i > 0) *snapshot << ", ";
         const auto& card = initialBc.cards.hand[i];
-        snapshot << getCardName(card.getId()) << "(" << int(card.cost) << ")";
+        *snapshot << getCardName(card.getId()) << "(" << int(card.cost) << ")";
     }
-    snapshot << std::endl;
+    *snapshot << std::endl;
 
-    snapshot << "  Deck: " << initialBc.cards.drawPile.size() << " cards remaining" << std::endl;
+    *snapshot << "  Deck: " << initialBc.cards.drawPile.size() << " cards remaining" << std::endl;
 
     // Format relics
-    snapshot << "  Relics: " << formatRelicsForSnapshot(initialBc.player) << std::endl;
+    *snapshot << "  Relics: " << formatRelicsForSnapshot(initialBc.player) << std::endl;
 
-    snapshot << std::endl;
+    *snapshot << std::endl;
 
     // Final Result
-    snapshot << "Final Result:" << std::endl;
-    snapshot << "  Outcome: ";
+    *snapshot << "Final Result:" << std::endl;
+    *snapshot << "  Outcome: ";
     switch (finalBc.outcome) {
         case Outcome::PLAYER_VICTORY:
-            snapshot << "PLAYER_VICTORY" << std::endl;
+            *snapshot << "PLAYER_VICTORY" << std::endl;
             break;
         case Outcome::PLAYER_LOSS:
-            snapshot << "PLAYER_LOSS" << std::endl;
+            *snapshot << "PLAYER_LOSS" << std::endl;
             break;
         default:
-            snapshot << "UNDECIDED" << std::endl;
+            *snapshot << "UNDECIDED" << std::endl;
             break;
     }
 
-    snapshot << "  Player HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp << std::endl;
-    snapshot << "  Relics: " << formatRelicsForSnapshot(finalBc.player) << std::endl;
-    snapshot << "  Turns: " << finalBc.turn << std::endl;
+    *snapshot << "  Player HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp << std::endl;
+    *snapshot << "  Relics: " << formatRelicsForSnapshot(finalBc.player) << std::endl;
+    *snapshot << "  Turns: " << finalBc.turn << std::endl;
 
     // RNG counters for determinism verification
-    snapshot << "  RNG Counters: shuffle=" << finalBc.shuffleRng.counter 
+    *snapshot << "  RNG Counters: shuffle=" << finalBc.shuffleRng.counter
              << ", cardRandom=" << finalBc.cardRandomRng.counter 
              << ", misc=" << finalBc.miscRng.counter << std::endl;
 
-    return snapshot.str();
+    return (*snapshot).str();
 }
 
 inline void writeSnapshotToFile(const std::string& snapshot, const std::string& filePath) {

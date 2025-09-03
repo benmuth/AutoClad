@@ -71,15 +71,16 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
     // Copy for snapshot (capture initial state)
     BattleContext finalBc = initialBc;
 
-    sts::search::AutoClad autoclad;
+    // sts::search::AutoClad autoclad;
     sts::search::SimpleAgent simple_agent;
 
-    search::SimpleAgent& agent = (a==Agent::simple ? simple_agent : autoclad);
+    // search::SimpleAgent& agent = (a==Agent::simple ? simple_agent : autoclad);
+    search::SimpleAgent& agent = simple_agent;
 
     // Create and configure the agent
     // sts::search::SimpleAgent agent;
 
-    agent.print = printDetails;
+    agent.print = false;
 
     if (printDetails) {
         std::cout << "  AGENT: " << getAgentName(a) << std::endl;
@@ -91,27 +92,29 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
         std::cout << "  Starting battle..." << std::endl;
     }
 
+    std::stringstream snapshot;
+
     // Run the agent battle simulation
-    agent.playoutBattle(finalBc);
+    agent.playoutBattle(finalBc, &snapshot);
 
     // Get action sequence after battle
     // auto actionSequence = agent.getActionSequence();
 
     // Report results
-    std::cout << "  Battle Result: ";
-    switch (finalBc.outcome) {
-        case Outcome::PLAYER_VICTORY:
-            std::cout << "VICTORY";
-            break;
-        case Outcome::PLAYER_LOSS:
-            std::cout << "DEFEAT";
-            break;
-        default:
-            std::cout << "UNDECIDED";
-            break;
-    }
-    std::cout << " (Final HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp
-                  << ", Turns: " << finalBc.turn << ")" << std::endl;
+    // std::cout << "  Battle Result: ";
+    // switch (finalBc.outcome) {
+    //     case Outcome::PLAYER_VICTORY:
+    //         std::cout << "VICTORY";
+    //         break;
+    //     case Outcome::PLAYER_LOSS:
+    //         std::cout << "DEFEAT";
+    //         break;
+    //     default:
+    //         std::cout << "UNDECIDED";
+    //         break;
+    // }
+    // std::cout << " (Final HP: " << finalBc.player.curHp << "/" << finalBc.player.maxHp
+    //               << ", Turns: " << finalBc.turn << ")" << std::endl;
 
     // Print action sequence
     // if (!actionSequence.empty()) {
@@ -128,12 +131,12 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
         std::string agentName = getAgentName(a);
         std::string encounterName = monsterEncounterStrings[static_cast<int>(gc.info.encounter)];
         std::string scenarioName = agentName + "_vs_" + encounterName + "_" + std::to_string(gc.seed);
-        std::string snapshot = utils::formatBattleSnapshot(gc, initialBc, finalBc, scenarioName, agentName);
+        std::string snapshot_str = utils::formatBattleSnapshot(gc, initialBc, finalBc, &snapshot, scenarioName, agentName);
 
         std::string filename = scenarioName + ".snap";
         std::string filepath = snapshotDir + "/" + filename;
 
-        utils::writeSnapshotToFile(snapshot, filepath);
+        utils::writeSnapshotToFile(snapshot_str, filepath);
         std::cout << "  Snapshot written to: " << filepath << std::endl;
     }
 
