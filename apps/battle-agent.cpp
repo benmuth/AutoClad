@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
 
     // Load all scenarios from the scenarios directory
     // std::vector<GameContext> allScenarios = sts::utils::loadScenariosFromDirectory("battle/scenarios/");
-    std::vector<GameContext> allScenarios = sts::utils::loadScenariosFromDirectory("battle/generated_scenarios/");
+    std::vector<GameContext> allScenarios = sts::utils::loadScenariosFromDirectory("battle/generated_scenarios/jaw_worm/");
 
 
     // Filter scenarios based on command line arguments
