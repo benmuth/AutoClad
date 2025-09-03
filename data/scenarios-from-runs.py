@@ -452,6 +452,11 @@ def create_scenario_file(scenario, output_dir, run_filename, scenario_index):
     max_hp = random.randint(30, 200)
     player_hp = random.randint(1, max_hp)
     encounter = get_encounter_for_floor(scenario.floor)
+
+    # Filter: only create scenario files for JAW_WORM encounters
+    if encounter != "JAW_WORM":
+        return None
+
     potions = generate_potions()
     relic_counters = generate_relic_counters(scenario.relics)
 
