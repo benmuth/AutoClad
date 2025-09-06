@@ -91,15 +91,22 @@ def load_jaw_worm_data():
         return None, None
 
 
-def train_model(model, train_loader, val_loader, num_epochs=50):
-    """Train the neural network"""
+def train_model(model, train_loader, val_loader, test_loader, num_epochs=50):
+    """Train the neural network and evaluate on train/val/test"""
 
     # Loss function and optimizer
-    criterion = nn.CrossEntropyLoss()  # Perfect for multi-class classification
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Track metrics
-    history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
+    history = {
+        "train_loss": [],
+        "val_loss": [],
+        "test_loss": [],
+        "train_acc": [],
+        "val_acc": [],
+        "test_acc": [],
+    }
 
     # Enable interactive plotting
     plt.ion()
@@ -114,18 +121,12 @@ def train_model(model, train_loader, val_loader, num_epochs=50):
         train_total = 0
 
         for batch_states, batch_actions in train_loader:
-            # Zero gradients
             optimizer.zero_grad()
-
-            # Forward pass
             outputs = model(batch_states)
             loss = criterion(outputs, batch_actions)
-
-            # Backward pass and optimization
-            loss.backward()  # This is where the magic happens - automatic gradients!
+            loss.backward()
             optimizer.step()
 
-            # Statistics
             train_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
             train_total += batch_actions.size(0)
@@ -133,40 +134,49 @@ def train_model(model, train_loader, val_loader, num_epochs=50):
 
         # Validation phase
         model.eval()
-        val_loss = 0.0
-        val_correct = 0
-        val_total = 0
-
-        with torch.no_grad():  # No gradients needed for validation
+        val_loss, val_correct, val_total = 0.0, 0, 0
+        with torch.no_grad():
             for batch_states, batch_actions in val_loader:
                 outputs = model(batch_states)
                 loss = criterion(outputs, batch_actions)
-
                 val_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
                 val_total += batch_actions.size(0)
                 val_correct += (predicted == batch_actions).sum().item()
 
+        # Test phase (just like validation)
+        test_loss, test_correct, test_total = 0.0, 0, 0
+        with torch.no_grad():
+            for batch_states, batch_actions in test_loader:
+                outputs = model(batch_states)
+                loss = criterion(outputs, batch_actions)
+                test_loss += loss.item()
+                _, predicted = torch.max(outputs.data, 1)
+                test_total += batch_actions.size(0)
+                test_correct += (predicted == batch_actions).sum().item()
+
         # Store metrics
         avg_train_loss = train_loss / len(train_loader)
         avg_val_loss = val_loss / len(val_loader)
+        avg_test_loss = test_loss / len(test_loader)
+
         train_acc = 100 * train_correct / train_total
         val_acc = 100 * val_correct / val_total
+        test_acc = 100 * test_correct / test_total
 
         history["train_loss"].append(avg_train_loss)
         history["val_loss"].append(avg_val_loss)
+        history["test_loss"].append(avg_test_loss)
         history["train_acc"].append(train_acc)
         history["val_acc"].append(val_acc)
+        history["test_acc"].append(test_acc)
 
         # Print progress
         if epoch % 10 == 0:
-            train_acc = 100 * train_correct / train_total
-            val_acc = 100 * val_correct / val_total
             print(f"Epoch [{epoch}/{num_epochs}]")
-            print(
-                f"Train Loss: {train_loss/len(train_loader):.4f}, Train Acc: {train_acc:.2f}%"
-            )
-            print(f"Val Loss: {val_loss/len(val_loader):.4f}, Val Acc: {val_acc:.2f}%")
+            print(f"Train Loss: {avg_train_loss:.4f}, Train Acc: {train_acc:.2f}%")
+            print(f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+            print(f"Test Loss: {avg_test_loss:.4f}, Test Acc: {test_acc:.2f}%")
             print("-" * 50)
 
         # === Live Plot Update ===
@@ -177,25 +187,25 @@ def train_model(model, train_loader, val_loader, num_epochs=50):
 
         ax1.plot(epochs, history["train_loss"], label="Train Loss")
         ax1.plot(epochs, history["val_loss"], label="Val Loss")
+        ax1.plot(epochs, history["test_loss"], label="Test Loss")
         ax1.set_xlabel("Epoch")
         ax1.set_ylabel("Loss")
         ax1.set_title("Loss over Epochs")
         ax1.legend()
 
-        ax2.plot(epochs, history["train_acc"], label="Train Accuracy")
-        ax2.plot(epochs, history["val_acc"], label="Val Accuracy")
+        ax2.plot(epochs, history["train_acc"], label="Train Acc")
+        ax2.plot(epochs, history["val_acc"], label="Val Acc")
+        ax2.plot(epochs, history["test_acc"], label="Test Acc")
         ax2.set_xlabel("Epoch")
         ax2.set_ylabel("Accuracy (%)")
         ax2.set_title("Accuracy over Epochs")
         ax2.legend()
 
         plt.tight_layout()
-        plt.pause(0.01)  # Brief pause to update the plot
+        plt.pause(0.01)
 
-    # Disable interactive mode, show final plots
     plt.ioff()
     plt.show()
-
     return history
 
 
@@ -261,7 +271,7 @@ if __name__ == "__main__":
     print(f"Training on {len(train_dataset)} examples")
     print("Starting training...")
 
-    _ = train_model(model, train_loader, val_loader, num_epochs=50)
+    _ = train_model(model, train_loader, val_loader, test_loader, num_epochs=200)
 
     # 5. Save the model
     torch.save(
