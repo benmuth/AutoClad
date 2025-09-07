@@ -140,6 +140,11 @@ run-neural-agent:
     LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
     DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent
 
+# Run battle-agent with snapshot output
+battle-agent-snapshot:
+    just build-battle-agent
+    ./{{BUILD_DIR}}/battle-agent --snapshot
+
 # Test neural network agent on first 10 JAW_WORM scenarios (requires LibTorch)
 test-neural-agent-quick:
     LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
