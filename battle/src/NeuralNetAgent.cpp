@@ -2,8 +2,6 @@
 // Created by Claude on 2025-01-09.
 //
 
-#ifdef NEURAL_NET_ENABLED
-
 #include "NeuralNetAgent.h"
 #include "SimpleAgent2.h"
 #include "Game2.h"
@@ -386,5 +384,3 @@ std::vector<std::string> NeuralNetAgent::getActionSequence() const {
 }
 
 } // namespace sts::search
-
-#endif // NEURAL_NET_ENABLED

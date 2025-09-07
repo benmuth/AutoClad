@@ -1,14 +1,13 @@
 #include <iostream>
 #include <string>
 #include <cctype>
+#include <filesystem>
 
 #include "BattleContext2.h"
 #include "GameContext2.h"
 #include "SimpleAgent2.h"
 #include "AutoClad.h"
-#ifdef NEURAL_NET_ENABLED
 #include "NeuralNetAgent.h"
-#endif
 #include "../include/utils/scenarios.h"
 #include "../include/constants/MonsterEncounters.h"
 
@@ -17,9 +16,7 @@ using namespace sts;
 enum class Agent {
   simple,
   autoclad,
-#ifdef NEURAL_NET_ENABLED
   neural,
-#endif
 };
 
 std::string getAgentName(Agent a) {
@@ -28,10 +25,8 @@ std::string getAgentName(Agent a) {
             return "SimpleAgent";
         case Agent::autoclad:
             return "AutoClad";
-#ifdef NEURAL_NET_ENABLED
         case Agent::neural:
             return "NeuralNetAgent";
-#endif
         default:
             return "Unknown";
     }
@@ -104,16 +99,12 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
     // Initialize agents based on selected type
     sts::search::SimpleAgent simple_agent;
     sts::search::AutoClad autoclad;
-#ifdef NEURAL_NET_ENABLED
     sts::search::NeuralNetAgent neural_agent;
-#endif
 
     // Configure agents
     simple_agent.print = false;
     autoclad.print = false;
-#ifdef NEURAL_NET_ENABLED
     neural_agent.print = false;
-#endif
 
     if (printDetails) {
         std::cout << "  AGENT: " << getAgentName(a) << std::endl;
@@ -135,11 +126,9 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
         case Agent::autoclad:
             autoclad.playoutBattle(finalBc, &snapshot);
             break;
-#ifdef NEURAL_NET_ENABLED
         case Agent::neural:
             neural_agent.playoutBattle(finalBc, &snapshot);
             break;
-#endif
         default:
             simple_agent.playoutBattle(finalBc, &snapshot);
             break;
@@ -241,13 +230,8 @@ int main(int argc, char* argv[]) {
     std::cout << "========================================" << std::endl;
 
     // Run neural agent on each scenario (fallback to simple agent if neural not available)
-    Agent selectedAgent = Agent::simple;
-#ifdef NEURAL_NET_ENABLED
-    selectedAgent = Agent::neural;
+    Agent selectedAgent = Agent::neural;
     std::cout << "Using NeuralNetAgent for battle simulations" << std::endl;
-#else
-    std::cout << "Using SimpleAgent for battle simulations (neural network not available)" << std::endl;
-#endif
     
     for (const auto& gc : scenarios) {
         runAgentOnScenario(selectedAgent, gc, true, generateSnapshots, snapshotDir);

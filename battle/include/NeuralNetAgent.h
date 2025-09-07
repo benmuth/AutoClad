@@ -5,8 +5,6 @@
 #ifndef STS_LIGHTSPEED_NEURALNETAGENT_H
 #define STS_LIGHTSPEED_NEURALNETAGENT_H
 
-#ifdef NEURAL_NET_ENABLED
-
 #include <torch/torch.h>
 #include <torch/script.h>
 #include <vector>
@@ -80,7 +78,5 @@ namespace sts::search {
     };
 
 }
-
-#endif // NEURAL_NET_ENABLED
 
 #endif //STS_LIGHTSPEED_NEURALNETAGENT_H

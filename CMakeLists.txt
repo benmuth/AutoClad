@@ -20,27 +20,17 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS  "-Wno-shift-count-overflow -O3")
 set(CMAKE_BUILD_TYPE Debug)
 
-# Find LibTorch C++ API for neural network support
-find_package(Torch QUIET)
-if(Torch_FOUND)
-    message(STATUS "Found LibTorch C++ API at: ${TORCH_LIBRARIES}")
-    set(NEURAL_NET_ENABLED TRUE)
-    
-    # Set C++17 standard required by LibTorch
-    set(CMAKE_CXX_STANDARD 17)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    
-    # LibTorch compile flags
-    if(NOT WIN32)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    endif()
-else()
-    message(STATUS "LibTorch C++ API not found - neural network agent will be disabled")
-    message(STATUS "To enable neural network support:")
-    message(STATUS "  1. Download LibTorch from https://pytorch.org/cppdist/")
-    message(STATUS "  2. Extract and set CMAKE_PREFIX_PATH to the LibTorch directory")
-    message(STATUS "  3. Example: cmake -DCMAKE_PREFIX_PATH=/path/to/libtorch ..")
-    set(NEURAL_NET_ENABLED FALSE)
+# Find LibTorch C++ API (required)
+find_package(Torch REQUIRED)
+message(STATUS "Found LibTorch C++ API at: ${TORCH_LIBRARIES}")
+
+# Set C++17 standard required by LibTorch
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# LibTorch compile flags
+if(NOT WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 add_subdirectory(json)
@@ -55,10 +45,14 @@ target_link_directories(main PRIVATE json::nlohmann_json)
 target_include_directories(main PUBLIC include)
 target_include_directories(main PUBLIC json/include)
 
-add_executable(test apps/test.cpp ${sts_lightspeed_SOURCES})
+add_executable(test apps/test.cpp ${sts_lightspeed_SOURCES} battle/src/NeuralNetAgent.cpp)
 target_include_directories(test PUBLIC include)
 target_link_directories(test PUBLIC json::nlohmann_json)
 target_include_directories(test PUBLIC json/include)
+target_include_directories(test PUBLIC battle/include)
+target_link_libraries(test "${TORCH_LIBRARIES}")
+set_property(TARGET test PROPERTY CXX_STANDARD 17)
+set_property(TARGET test PROPERTY CXX_STANDARD_REQUIRED ON)
 
 add_executable(small-test apps/small-test.cpp ${sts_lightspeed_SOURCES})
 target_link_directories(small-test PRIVATE json::nlohmann_json)
@@ -106,10 +100,8 @@ set(sts_battle_agent_SOURCES
     "src/sim/SimHelpers.cpp"
 )
 
-# Add neural network agent sources if LibTorch is available
-if(NEURAL_NET_ENABLED)
-    list(APPEND sts_battle_agent_SOURCES "battle/src/NeuralNetAgent.cpp")
-endif()
+# Add neural network agent sources
+list(APPEND sts_battle_agent_SOURCES "battle/src/NeuralNetAgent.cpp")
 
 add_executable(battle-agent
     apps/battle-agent.cpp
@@ -129,22 +121,19 @@ target_include_directories(battle-agent PUBLIC battle/include)
 target_include_directories(battle-agent PUBLIC include)
 target_include_directories(battle-agent PUBLIC json/include)
 
-# Link LibTorch C++ API if available
-if(NEURAL_NET_ENABLED)
-    target_link_libraries(battle-agent "${TORCH_LIBRARIES}")
-    target_compile_definitions(battle-agent PRIVATE NEURAL_NET_ENABLED)
-    
-    # Set C++17 and required compile flags for LibTorch
-    set_property(TARGET battle-agent PROPERTY CXX_STANDARD 17)
-    set_property(TARGET battle-agent PROPERTY CXX_STANDARD_REQUIRED ON)
-    
-    # Copy model files to build directory for runtime access
-    add_custom_command(TARGET battle-agent POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/AutoClad/jaw_worm_model_traced.pt"
-        "$<TARGET_FILE_DIR:battle-agent>/jaw_worm_model_traced.pt")
-    add_custom_command(TARGET battle-agent POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/AutoClad/scaler_params.json"
-        "$<TARGET_FILE_DIR:battle-agent>/scaler_params.json")
-endif()
+# Link LibTorch C++ API
+target_link_libraries(battle-agent "${TORCH_LIBRARIES}")
+
+# Set C++17 and required compile flags for LibTorch
+set_property(TARGET battle-agent PROPERTY CXX_STANDARD 17)
+set_property(TARGET battle-agent PROPERTY CXX_STANDARD_REQUIRED ON)
+
+# Copy model files to build directory for runtime access
+add_custom_command(TARGET battle-agent POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/AutoClad/jaw_worm_model_traced.pt"
+    "$<TARGET_FILE_DIR:battle-agent>/jaw_worm_model_traced.pt")
+add_custom_command(TARGET battle-agent POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/AutoClad/scaler_params.json"
+    "$<TARGET_FILE_DIR:battle-agent>/scaler_params.json")
