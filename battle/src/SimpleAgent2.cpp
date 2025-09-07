@@ -215,59 +215,8 @@ bool search::SimpleAgent::playPotion(BattleContext &bc) {
 void search::SimpleAgent::playoutBattle(BattleContext &bc, std::stringstream* snapshot) {
     bool usedPotions = !isBossEncounter(bc.encounter);
     while (bc.outcome == Outcome::UNDECIDED) {
-        // every turn, record:
-        // turn number
-        // health
-        // max health
-        // enemy health
-        // enemy intent?
-        // cards in hand
-        // cards in discard
-        // cards in exhaust
-        // potions
-        // relic counters
         if (snapshot && bc.inputState == InputState::PLAYER_NORMAL) {
             *snapshot << bc << std::endl;
-            *snapshot << "turn:" << bc.turn
-                     << ",health:" << bc.player.curHp
-                     << ",maxhealth:" << bc.player.maxHp
-                     << ",energy:" << bc.player.energy
-                     << ",block:" << bc.player.block;
-
-            // Record enemy health
-            for (int i = 0; i < bc.monsters.monsterCount; ++i) {
-                *snapshot << ",enemy" << i << "_hp:" << bc.monsters.arr[i].curHp;
-            }
-
-            // Record cards in hand
-            *snapshot << ",hand_size:" << bc.cards.cardsInHand;
-            for (int i = 0; i < bc.cards.cardsInHand; ++i) {
-                *snapshot << ",hand_card" << i << ":" << static_cast<int>(bc.cards.hand[i].getId());
-            }
-
-            // Record draw pile
-            *snapshot << ",draw_size:" << bc.cards.drawPile.size();
-            for (int i = 0; i < bc.cards.drawPile.size(); ++i) {
-                *snapshot << ",draw_card" << i << ":" << static_cast<int>(bc.cards.drawPile[i].getId());
-            }
-
-            // Record discard pile
-            *snapshot << ",discard_size:" << bc.cards.discardPile.size();
-            for (int i = 0; i < bc.cards.discardPile.size(); ++i) {
-                *snapshot << ",discard_card" << i << ":" << static_cast<int>(bc.cards.discardPile[i].getId());
-            }
-
-            // Record exhaust pile
-            *snapshot << ",exhaust_size:" << bc.cards.exhaustPile.size();
-            for (int i = 0; i < bc.cards.exhaustPile.size(); ++i) {
-                *snapshot << ",exhaust_card" << i << ":" << static_cast<int>(bc.cards.exhaustPile[i].getId());
-            }
-
-            // Record potions
-            for (int i = 0; i < bc.potionCapacity; ++i) {
-                *snapshot << ",potion" << i << ":" << static_cast<int>(bc.potions[i]);
-            }
-
             *snapshot << "\n";
         }
 

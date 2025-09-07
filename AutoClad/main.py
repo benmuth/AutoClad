@@ -73,7 +73,6 @@ def prepare_data(raw_states, raw_actions):
 
 def load_jaw_worm_data():
     """Load the processed Jaw Worm battle data."""
-    import numpy as np
 
     try:
         # Load the preprocessed data
