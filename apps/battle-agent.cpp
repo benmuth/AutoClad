@@ -71,6 +71,26 @@ std::vector<GameContext> filterScenarios(const std::vector<GameContext>& allScen
     return filteredScenarios;
 }
 
+void clearSnapshotDirectory(const std::string& snapshotDir) {
+    try {
+        if (std::filesystem::exists(snapshotDir)) {
+            // Remove all files in the directory
+            for (const auto& entry : std::filesystem::directory_iterator(snapshotDir)) {
+                if (entry.is_regular_file() && entry.path().extension() == ".snap") {
+                    std::filesystem::remove(entry.path());
+                }
+            }
+            std::cout << "Cleared existing snapshots from: " << snapshotDir << std::endl;
+        } else {
+            // Create the directory if it doesn't exist
+            std::filesystem::create_directories(snapshotDir);
+            std::cout << "Created snapshot directory: " << snapshotDir << std::endl;
+        }
+    } catch (const std::filesystem::filesystem_error& ex) {
+        std::cerr << "Error managing snapshot directory: " << ex.what() << std::endl;
+    }
+}
+
 void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = false, bool generateSnapshot = false, const std::string& snapshotDir = "") {
     std::cout << "Running agent on scenario " << static_cast<int>(gc.info.encounter) << " with seed: " << gc.seed << std::endl;
 
@@ -216,6 +236,7 @@ int main(int argc, char* argv[]) {
 
     if (generateSnapshots) {
         std::cout << "Snapshots will be written to: " << snapshotDir << std::endl;
+        clearSnapshotDirectory(snapshotDir);
     }
     std::cout << "========================================" << std::endl;
 
