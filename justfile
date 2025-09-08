@@ -135,30 +135,32 @@ build-battle-agent:
     mkdir -p {{BUILD_DIR}}
     cd {{BUILD_DIR}} && cmake .. && make battle-agent
 
-# Run neural network agent on JAW_WORM scenarios (requires LibTorch)
-run-neural-agent:
-    LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
-    DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent
+# Run battle-agent with specified agent type (simple, autoclad, neural)
+run-agent agent *ARGS:
+    #!/usr/bin/env bash
+    if [ "{{agent}}" = "neural" ]; then
+        LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
+        DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent --agent={{agent}} {{ARGS}}
+    else
+        just build-battle-agent
+        ./{{BUILD_DIR}}/battle-agent --agent={{agent}} {{ARGS}}
+    fi
 
-# Run battle-agent with snapshot output
-battle-agent-snapshot:
+# Run battle-agent with snapshot output (requires agent type)
+battle-agent-snapshot agent:
     just build-battle-agent
-    ./{{BUILD_DIR}}/battle-agent --snapshot
+    ./{{BUILD_DIR}}/battle-agent --agent={{agent}} --snapshot
 
-# Test neural network agent on first 10 JAW_WORM scenarios (requires LibTorch)
-test-neural-agent-quick:
-    LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
-    DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent 2>/dev/null | head -50
+# Test agent quickly (first 10 scenarios)
+test-agent-quick agent:
+    just run-agent {{agent}} 2>/dev/null | head -50
 
 # Compare agent performance by running both SimpleAgent and NeuralNetAgent
 compare-agents:
-    @echo "Building both agents..."
-    just build
-    LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
     @echo "Running SimpleAgent (first 5 scenarios)..."
-    ./{{BUILD_DIR}}/battle-agent 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
+    just run-agent simple 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
     @echo "Running NeuralNetAgent (first 5 scenarios)..."
-    DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
+    just run-agent neural 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
 
 # Validate fight JSON syntax
 validate-fight-json fight_json:
@@ -210,12 +212,14 @@ executables:
     @echo "  test         - Comprehensive test runner with multiple commands"
     @echo "  small-test   - Minimal test executable for quick testing"
     @echo "  battle       - Standalone battle context simulator with SimpleAgent"
-    @echo "  battle-agent - Battle simulation with agents (SimpleAgent2, NeuralNetAgent if LibTorch available)"
+    @echo "  battle-agent - Battle simulation with agents (simple, autoclad, neural)"
     @echo ""
     @echo "Usage examples:"
     @echo "  just run            # Run interactive simulator"
     @echo "  just battle         # Run standalone battle simulation"
     @echo "  just test-small     # Run minimal test"
+    @echo "  just run-agent simple  # Run simple agent on all scenarios"
+    @echo "  just run-agent neural --scenario=jaw_worm  # Run neural agent on jaw_worm scenarios"
     @echo "  just test agent_mt 1 1 0 1984 1 true  # Run AI agent test"
 
 # Show available test commands

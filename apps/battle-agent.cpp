@@ -182,25 +182,85 @@ void runAgentOnScenario(Agent a, const GameContext& gc, bool printDetails = fals
     std::cout << std::endl;
 }
 
+Agent parseAgent(const std::string& agentStr) {
+    std::string lowerAgent = agentStr;
+    std::transform(lowerAgent.begin(), lowerAgent.end(), lowerAgent.begin(), ::tolower);
+    
+    if (lowerAgent == "simple") {
+        return Agent::simple;
+    } else if (lowerAgent == "autoclad") {
+        return Agent::autoclad;
+    } else if (lowerAgent == "neural") {
+        return Agent::neural;
+    } else {
+        throw std::invalid_argument("Invalid agent type: " + agentStr + ". Valid options are: simple, autoclad, neural");
+    }
+}
+
+void printUsage(const char* programName) {
+    std::cout << "Usage: " << programName << " --agent=<agent_type> [options]" << std::endl;
+    std::cout << "Required arguments:" << std::endl;
+    std::cout << "  --agent=<type>      Agent type (simple, autoclad, neural)" << std::endl;
+    std::cout << "Optional arguments:" << std::endl;
+    std::cout << "  --snapshot[=<dir>]  Generate snapshots (default: data/agent_battles/<agent>)" << std::endl;
+    std::cout << "  --scenario=<name>   Filter scenarios by name (can be used multiple times)" << std::endl;
+}
+
 int main(int argc, char* argv[]) {
-    bool generateSnapshots = true; // Always generate snapshots for neural network analysis
-    std::string snapshotDir = "data/agent_battles/nn";
+    bool generateSnapshots = true;
+    std::string snapshotDir = "";
     std::vector<std::string> scenarioFilters;
+    Agent selectedAgent;
+    bool agentSpecified = false;
 
     // Parse command line arguments
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
 
-        if (arg == "--snapshot") {
+        if (arg.length() > 8 && arg.substr(0, 8) == "--agent=") {
+            std::string agentValue = arg.substr(8); // Remove "--agent="
+            try {
+                selectedAgent = parseAgent(agentValue);
+                agentSpecified = true;
+            } catch (const std::invalid_argument& e) {
+                std::cerr << "Error: " << e.what() << std::endl;
+                printUsage(argv[0]);
+                return 1;
+            }
+        } else if (arg == "--snapshot") {
             generateSnapshots = true;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 snapshotDir = argv[i + 1];
                 ++i; // Skip the directory argument
             }
+        } else if (arg.length() > 11 && arg.substr(0, 11) == "--snapshot=") {
+            generateSnapshots = true;
+            snapshotDir = arg.substr(11); // Remove "--snapshot="
         } else if (arg.length() > 11 && arg.substr(0, 11) == "--scenario=") {
             std::string scenarioValue = arg.substr(11); // Remove "--scenario="
             scenarioFilters.push_back(scenarioValue);
+        } else if (arg == "--help" || arg == "-h") {
+            printUsage(argv[0]);
+            return 0;
+        } else {
+            std::cerr << "Error: Unknown argument '" << arg << "'" << std::endl;
+            printUsage(argv[0]);
+            return 1;
         }
+    }
+
+    // Check if agent was specified
+    if (!agentSpecified) {
+        std::cerr << "Error: Agent type must be specified with --agent=<type>" << std::endl;
+        printUsage(argv[0]);
+        return 1;
+    }
+
+    // Set default snapshot directory based on agent if not specified
+    if (snapshotDir.empty()) {
+        std::string agentName = getAgentName(selectedAgent);
+        std::transform(agentName.begin(), agentName.end(), agentName.begin(), ::tolower);
+        snapshotDir = "data/agent_battles/" + agentName;
     }
 
     // Load all scenarios from the scenarios directory
@@ -229,9 +289,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "========================================" << std::endl;
 
-    // Run neural agent on each scenario (fallback to simple agent if neural not available)
-    Agent selectedAgent = Agent::neural;
-    std::cout << "Using NeuralNetAgent for battle simulations" << std::endl;
+    std::cout << "Using " << getAgentName(selectedAgent) << " for battle simulations" << std::endl;
     
     for (const auto& gc : scenarios) {
         runAgentOnScenario(selectedAgent, gc, true, generateSnapshots, snapshotDir);
