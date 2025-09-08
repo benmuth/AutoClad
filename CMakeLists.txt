@@ -5,6 +5,8 @@ project(
         DESCRIPTION "High Performance, rng accurate implementation of Slay the Spire with tools for tree search and ml."
         LANGUAGES CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 file (GLOB_RECURSE sts_lightspeed_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
 # Create a filtered source list for battle executable (exclude conflicting files)
