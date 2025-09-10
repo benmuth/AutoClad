@@ -80,6 +80,7 @@ namespace sts {
 
         ActionQueue<50> actionQueue;
         CardQueue cardQueue;
+        std::string lastPlayerActionDescription;
 
         int potionCount = 0;
         int potionCapacity = 3;

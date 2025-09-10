@@ -3,6 +3,8 @@
 //
 
 #include "Action2.h"
+#include "constants/Cards.h"
+#include "constants/Potions.h"
 
 #include <functional>
 
@@ -418,6 +420,43 @@ void executeMultiCardSelectActionHelper(BattleContext &bc, search::Action a) {
     }
 }
 
+std::string search::Action::getDescription(const BattleContext &bc) const {
+    switch (getActionType()) {
+        case ActionType::CARD: {
+            const auto &card = bc.cards.hand[getSourceIdx()];
+            std::string desc = "(" + std::string(cardNames[static_cast<int>(card.getId())]) + "," + std::to_string(static_cast<int>(card.getId())) + "," + std::to_string(card.cost) + "," + std::to_string(card.costForTurn) + ")";
+            if (getTargetIdx() != -1) {
+                desc += "_target_" + std::to_string(getTargetIdx());
+            }
+            return desc;
+        }
+
+        case ActionType::POTION: {
+            const auto &potion = bc.potions[getSourceIdx()];
+            std::string desc = "(" + std::string(getPotionName(potion)) + ")";
+            if (getTargetIdx() != -1 && getTargetIdx() <= 5) {
+                desc += "_target_" + std::to_string(getTargetIdx());
+            }
+            return desc;
+        }
+
+        case ActionType::SINGLE_CARD_SELECT: {
+            return "(select_card_" + std::to_string(getSelectIdx()) + ")";
+        }
+
+        case ActionType::MULTI_CARD_SELECT: {
+            return "(select_cards_" + std::to_string(getSelectIdx()) + ")";
+        }
+
+        case ActionType::END_TURN: {
+            return "(end_turn)";
+        }
+
+        default:
+            return "(unknown_action)";
+    }
+}
+
 void search::Action::execute(BattleContext &bc) const {
 #ifdef sts_asserts
     if (!isValidAction(bc)) {
@@ -427,6 +466,9 @@ void search::Action::execute(BattleContext &bc) const {
         assert(false);
     }
 #endif
+
+    // Record the player action with description
+    bc.lastPlayerActionDescription = getDescription(bc);
 
     switch (getActionType()) {
         case ActionType::CARD: {

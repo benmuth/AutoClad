@@ -54,6 +54,7 @@ namespace sts::search {
 
         [[nodiscard]] bool isValidAction(const sts::BattleContext &bc) const;
         std::ostream& printDesc(std::ostream &os, const sts::BattleContext &bc) const;
+        [[nodiscard]] std::string getDescription(const BattleContext &bc) const;
         void execute(BattleContext &bc) const;
 
 

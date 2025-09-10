@@ -217,7 +217,12 @@ void search::SimpleAgent::playoutBattle(BattleContext &bc, std::stringstream* sn
     while (bc.outcome == Outcome::UNDECIDED) {
         if (snapshot && bc.inputState == InputState::PLAYER_NORMAL) {
             *snapshot << bc << std::endl;
-            *snapshot << "\n";
+            *snapshot << "ActionQueue: " << std::endl;
+            if (!bc.lastPlayerActionDescription.empty()) {
+                *snapshot << "Last Player Action: " << bc.lastPlayerActionDescription << std::endl << std::endl;
+            } else {
+                *snapshot << "No last action" << bc.lastPlayerActionDescription << std::endl << std::endl;
+            }
         }
 
         if (bc.inputState == InputState::CARD_SELECT) {
