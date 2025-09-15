@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, random_split
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+# from sklearn.model_selection import train_test_split
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -90,7 +91,7 @@ def load_jaw_worm_data():
         return None, None
 
 
-def train_model(model, train_loader, val_loader, test_loader, num_epochs=50):
+def train_model(model, train_loader, val_loader, test_loader, device, num_epochs=50):
     """Train the neural network and evaluate on train/val/test"""
 
     # Loss function and optimizer
@@ -120,6 +121,7 @@ def train_model(model, train_loader, val_loader, test_loader, num_epochs=50):
         train_total = 0
 
         for batch_states, batch_actions in train_loader:
+            batch_states, batch_actions = batch_states.to(device), batch_actions.to(device)
             optimizer.zero_grad()
             outputs = model(batch_states)
             loss = criterion(outputs, batch_actions)
@@ -136,6 +138,7 @@ def train_model(model, train_loader, val_loader, test_loader, num_epochs=50):
         val_loss, val_correct, val_total = 0.0, 0, 0
         with torch.no_grad():
             for batch_states, batch_actions in val_loader:
+                batch_states, batch_actions = batch_states.to(device), batch_actions.to(device)
                 outputs = model(batch_states)
                 loss = criterion(outputs, batch_actions)
                 val_loss += loss.item()
@@ -147,6 +150,7 @@ def train_model(model, train_loader, val_loader, test_loader, num_epochs=50):
         test_loss, test_correct, test_total = 0.0, 0, 0
         with torch.no_grad():
             for batch_states, batch_actions in test_loader:
+                batch_states, batch_actions = batch_states.to(device), batch_actions.to(device)
                 outputs = model(batch_states)
                 loss = criterion(outputs, batch_actions)
                 test_loss += loss.item()
@@ -208,7 +212,7 @@ def train_model(model, train_loader, val_loader, test_loader, num_epochs=50):
     return history
 
 
-def make_prediction(model, game_state, scaler):
+def make_prediction(model, game_state, scaler, device):
     """
     Make a prediction for a single game state
 
@@ -216,6 +220,7 @@ def make_prediction(model, game_state, scaler):
         model: trained PyTorch model
         game_state: feature vector for current game state
         scaler: fitted StandardScaler from training
+        device: torch device (cpu, mps, cuda)
 
     Returns:
         predicted_action: which action to take (0-4: hand positions, 5: end turn)
@@ -225,18 +230,26 @@ def make_prediction(model, game_state, scaler):
 
     # Normalize the input
     normalized_state = scaler.transform([game_state])
-    state_tensor = torch.FloatTensor(normalized_state)
+    state_tensor = torch.FloatTensor(normalized_state).to(device)
 
     with torch.no_grad():
         outputs = model(state_tensor)
         probabilities = torch.softmax(outputs, dim=1)
         _, predicted_action = torch.max(outputs, 1)
 
-    return predicted_action.item(), probabilities[0].numpy()
+    return predicted_action.item(), probabilities[0].cpu().numpy()
 
 
 # Example usage:
 if __name__ == "__main__":
+    # Check for MPS (Metal Performance Shaders) device on Apple Silicon
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+        print(f"Using MPS device: {device}")
+    else:
+        device = torch.device("cpu")
+        print("MPS device not found. Using CPU.")
+
     # Load real Jaw Worm battle data
     print("Loading Jaw Worm battle data...")
     raw_states, raw_actions = load_jaw_worm_data()
@@ -264,13 +277,13 @@ if __name__ == "__main__":
 
     # 4. Create and train model
     input_size = states.shape[1]  # Size of feature vector from real data
-    model = CardGameNet(input_size)
+    model = CardGameNet(input_size).to(device)
 
     print(f"Model created with input size: {input_size}")
     print(f"Training on {len(train_dataset)} examples")
     print("Starting training...")
 
-    _ = train_model(model, train_loader, val_loader, test_loader, num_epochs=200)
+    _ = train_model(model, train_loader, val_loader, test_loader, device, num_epochs=200)
 
     # 5. Save the model
     torch.save(
@@ -286,7 +299,7 @@ if __name__ == "__main__":
 
     # Export model to TorchScript for C++ usage
     model.eval()
-    example_input = torch.randn(1, input_size)
+    example_input = torch.randn(1, input_size).to(device)
     traced_model = torch.jit.trace(model, example_input)
     traced_model.save("jaw_worm_model_traced.pt")
 
@@ -306,7 +319,7 @@ if __name__ == "__main__":
 
     # 6. Example prediction
     example_state = raw_states[0]
-    predicted_action, probs = make_prediction(model, example_state, scaler)
+    predicted_action, probs = make_prediction(model, example_state, scaler, device)
     action_names = ["Hand 0", "Hand 1", "Hand 2", "Hand 3", "Hand 4", "End Turn"]
     print(f"\nExample prediction:")
     print(f"Predicted action: {predicted_action} ({action_names[predicted_action]})")
