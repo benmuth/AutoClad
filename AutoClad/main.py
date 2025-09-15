@@ -32,7 +32,7 @@ class CardGameDataset(Dataset):
 class CardGameNet(nn.Module):
     """Neural network for card game decision making"""
 
-    def __init__(self, input_size, hidden_size1=256, hidden_size2=128):
+    def __init__(self, input_size, hidden_size1=16, hidden_size2=16):
         super(CardGameNet, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(input_size, hidden_size1),
