@@ -44,6 +44,38 @@ def extract_hand_cards(state: Dict) -> List[int]:
     return hand_cards
 
 
+def encode_hand_cards_count(hand_cards: List[int]) -> List[float]:
+    """Convert hand card IDs to count encoding.
+
+    Args:
+        hand_cards: List of 5 card IDs (-1 for empty slots)
+
+    Returns:
+        List of 43 features (count of each card type)
+    """
+    # All unique card IDs found in training data + empty slot (-1)
+    CARD_IDS = [
+        -1, 11, 14, 25, 27, 42, 52, 57, 67, 69, 73, 104, 112, 141, 147, 148, 149, 154,
+        170, 179, 184, 187, 193, 198, 202, 222, 234, 244, 249, 258, 261, 266, 289, 297,
+        300, 301, 311, 321, 329, 339, 347, 349, 362
+    ]
+
+    # Create mapping from card ID to index
+    card_to_idx = {card_id: i for i, card_id in enumerate(CARD_IDS)}
+
+    # Count each card type
+    card_counts = [0.0] * len(CARD_IDS)
+
+    for card_id in hand_cards:
+        if card_id in card_to_idx:
+            card_counts[card_to_idx[card_id]] += 1.0
+        else:
+            # Unknown card - count as empty slot
+            card_counts[card_to_idx[-1]] += 1.0
+
+    return card_counts
+
+
 def create_feature_vector(state: Dict) -> List[float]:
     """Convert game state to feature vector for neural network."""
     features = []
@@ -59,9 +91,10 @@ def create_feature_vector(state: Dict) -> List[float]:
         ]
     )
 
-    # Hand cards (5 cards, pad with -1 if needed)
+    # Count encoded hand cards (43 features for card type counts)
     hand_cards = extract_hand_cards(state)
-    features.extend(hand_cards)
+    hand_counts = encode_hand_cards_count(hand_cards)
+    features.extend(hand_counts)
 
     # Potions (simplified to count of non-empty slots) - COMMENTED OUT FOR NOW
     # potion_count = 0

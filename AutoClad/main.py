@@ -41,10 +41,10 @@ class CardGameNet(nn.Module):
         self.network = nn.Sequential(
             nn.Linear(input_size, hidden_size1),
             nn.ReLU(),
-            nn.Dropout(0.3),  # Regularization to prevent overfitting
+            nn.Dropout(0.2),  # Regularization to prevent overfitting
             nn.Linear(hidden_size1, hidden_size2),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.2),
             nn.Linear(hidden_size2, 6),  # 5 hand positions + 1 end turn action
             # Note: No softmax here - CrossEntropyLoss applies it internally
         )
@@ -95,7 +95,14 @@ def load_jaw_worm_data():
 
 
 def train_model(
-    model, train_loader, val_loader, test_loader, device, num_epochs=300, plot=False
+    model,
+    train_loader,
+    val_loader,
+    test_loader,
+    device,
+    num_epochs,
+    plot=False,
+    early_stopping=False,
 ):
     """Train the neural network and evaluate on train/val/test"""
 
@@ -124,6 +131,13 @@ def train_model(
 
         plt.ion()
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+    # Early stopping variables
+    if early_stopping:
+        best_val_loss = float("inf")
+        patience = 20  # Stop after 20 epochs without improvement
+        patience_counter = 0
+        best_model_state = None
 
     # Training loop
     for epoch in range(num_epochs):
@@ -200,13 +214,37 @@ def train_model(
         history["val_acc"].append(val_acc)
         history["test_acc"].append(test_acc)
 
+        # Early stopping check
+        if early_stopping:
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                patience_counter = 0
+                # Save best model
+                best_model_state = model.state_dict().copy()
+            else:
+                patience_counter += 1
+
         # Print progress
         if epoch % 10 == 0:
-            print(f"Epoch [{epoch}/{num_epochs}]")
+            if early_stopping:
+                print(
+                    f"Epoch [{epoch}/{num_epochs}] (patience: {patience_counter}/{patience})"
+                )
+            else:
+                print(f"Epoch [{epoch}/{num_epochs}]")
             print(f"Train Loss: {avg_train_loss:.4f}, Train Acc: {train_acc:.2f}%")
             print(f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.2f}%")
             print(f"Test Loss: {avg_test_loss:.4f}, Test Acc: {test_acc:.2f}%")
             print("-" * 50)
+
+        # Stop if no improvement for patience epochs
+        if early_stopping and patience_counter >= patience:
+            print(
+                f"Early stopping at epoch {epoch}. Best val loss: {best_val_loss:.4f}"
+            )
+            # Restore best model
+            model.load_state_dict(best_model_state)
+            break
 
         # === Live Plot Update ===
         if plot:
@@ -281,8 +319,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--epochs",
         type=int,
-        default=100,
+        default=300,
         help="Number of training epochs (default: 200)",
+    )
+    parser.add_argument(
+        "--early-stopping",
+        action="store_true",
+        default=False,
+        help="Enable early stopping based on validation loss",
     )
     args = parser.parse_args()
 
@@ -334,8 +378,9 @@ if __name__ == "__main__":
         val_loader,
         test_loader,
         device,
-        num_epochs=300,
+        num_epochs=args.epochs,
         plot=args.plot,
+        early_stopping=args.early_stopping,
     )
 
     # 5. Save the model

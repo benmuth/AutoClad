@@ -6,7 +6,7 @@ import logging
 from typing import Dict, List, Optional
 
 # Import shared functions from data_parser.py
-from data_parser import create_feature_vector, extract_hand_cards
+from data_parser import create_feature_vector, extract_hand_cards, encode_hand_cards_count
 
 
 class StateConverter:
@@ -17,13 +17,13 @@ class StateConverter:
 
     def convert_to_features(self, game_state: Dict) -> List[float]:
         """
-        Convert CommunicationMod JSON to 11-element feature vector using data_parser.py logic.
+        Convert CommunicationMod JSON to 49-element feature vector using data_parser.py logic.
 
         Args:
             game_state: CommunicationMod JSON game state
 
         Returns:
-            List of 11 features: [turn, health, energy, block, enemy_hp, hand0-4, potion_count]
+            List of 49 features: [turn, health, energy, block, enemy_hp, card_counts_43, potion_count]
         """
         try:
             # Validate that we're in combat
