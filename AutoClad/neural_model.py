@@ -15,7 +15,11 @@ from main import CardGameNet, make_prediction
 class NeuralModel:
     """Model loader and prediction interface using shared main.py components"""
 
-    def __init__(self, model_path: str = "jaw_worm_model.pth", logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        model_path: str = "jaw_worm_model.pth",
+        logger: Optional[logging.Logger] = None,
+    ):
         self.logger = logger or logging.getLogger(__name__)
         self.model = None
         self.scaler = None
@@ -45,25 +49,29 @@ class NeuralModel:
 
             # Load model checkpoint
             self.logger.info(f"Loading model from: {model_path}")
-            checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
+            checkpoint = torch.load(
+                model_path, map_location=self.device, weights_only=False
+            )
 
             # Validate checkpoint format
-            required_keys = ['model_state_dict', 'scaler', 'input_size']
+            required_keys = ["model_state_dict", "scaler", "input_size"]
             for key in required_keys:
                 if key not in checkpoint:
                     self.logger.error(f"Model checkpoint missing '{key}'")
                     raise ValueError(f"Invalid model checkpoint format: missing {key}")
 
             # Extract components
-            self.input_size = checkpoint['input_size']
-            self.scaler = checkpoint['scaler']
+            self.input_size = checkpoint["input_size"]
+            self.scaler = checkpoint["scaler"]
 
             # Initialize model using shared CardGameNet class
             self.model = CardGameNet(self.input_size).to(self.device)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.model.load_state_dict(checkpoint["model_state_dict"])
             self.model.eval()
 
-            self.logger.info(f"Model loaded successfully. Input size: {self.input_size}")
+            self.logger.info(
+                f"Model loaded successfully. Input size: {self.input_size}"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to load model: {e}")
@@ -84,18 +92,21 @@ class NeuralModel:
         try:
             # Validate input size
             if len(game_state_features) != self.input_size:
-                self.logger.error(f"Feature vector size mismatch. Expected {self.input_size}, got {len(game_state_features)}")
-                raise ValueError(f"Feature vector size mismatch. Expected {self.input_size}, got {len(game_state_features)}")
+                self.logger.error(
+                    f"Feature vector size mismatch. Expected {self.input_size}, got {len(game_state_features)}"
+                )
+                raise ValueError(
+                    f"Feature vector size mismatch. Expected {self.input_size}, got {len(game_state_features)}"
+                )
 
             # Use shared make_prediction function for exact compatibility
             predicted_action, probabilities = make_prediction(
-                self.model,
-                game_state_features,
-                self.scaler,
-                self.device
+                self.model, game_state_features, self.scaler, self.device
             )
 
-            self.logger.debug(f"Prediction: {predicted_action}, Probabilities: {probabilities}")
+            self.logger.debug(
+                f"Prediction: {predicted_action}, Probabilities: {probabilities}"
+            )
 
             return predicted_action, probabilities.tolist()
 
@@ -111,6 +122,6 @@ class NeuralModel:
             2: "Play Hand Card 2",
             3: "Play Hand Card 3",
             4: "Play Hand Card 4",
-            5: "End Turn"
+            5: "End Turn",
         }
         return action_names.get(action, f"Unknown Action {action}")

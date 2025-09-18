@@ -16,7 +16,9 @@ from state_converter import StateConverter
 class NeuralAgent:
     """Neural network agent implementing CommunicationMod protocol"""
 
-    def __init__(self, model_path: str = "jaw_worm_model.pth", log_file: str = "neural_agent.log"):
+    def __init__(
+        self, model_path: str = "jaw_worm_model.pth", log_file: str = "neural_agent.log"
+    ):
         # Setup file-based logging (avoid stdout/stderr pollution)
         self.setup_logging(log_file)
 
@@ -33,10 +35,10 @@ class NeuralAgent:
         """Setup file-based logging to avoid stdout pollution"""
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.FileHandler(log_file),
-            ]
+            ],
         )
         self.logger = logging.getLogger(__name__)
 
@@ -109,7 +111,9 @@ class NeuralAgent:
             # Log decision
             action_name = self.neural_model.get_action_name(predicted_action)
             confidence = probabilities[predicted_action] * 100
-            self.logger.info(f"Neural decision: {action_name} (confidence: {confidence:.1f}%)")
+            self.logger.info(
+                f"Neural decision: {action_name} (confidence: {confidence:.1f}%)"
+            )
 
             return command
 
@@ -121,20 +125,20 @@ class NeuralAgent:
     def can_handle_state(self, game_state: Dict) -> bool:
         """Check if this is a combat state we can handle with neural network"""
         return (
-            game_state.get('in_game', False) and
-            game_state.get('ready_for_command', False) and
-            'combat_state' in game_state and
-            self.is_card_play_state(game_state)
+            game_state.get("in_game", False)
+            and game_state.get("ready_for_command", False)
+            and "combat_state" in game_state
+            and self.is_card_play_state(game_state)
         )
 
     def is_card_play_state(self, game_state: Dict) -> bool:
         """Check if we're in a state where we can play cards (not card select screens)"""
         # Check available commands - we only handle PLAY and END commands
-        available_commands = game_state.get('available_commands', [])
+        available_commands = game_state.get("available_commands", [])
 
         # We can handle states where we can play cards or end turn
-        can_play = 'play' in available_commands
-        can_end = 'end' in available_commands
+        can_play = "play" in available_commands
+        can_end = "end" in available_commands
 
         return can_play or can_end
 
@@ -166,20 +170,24 @@ class NeuralAgent:
 
     def validate_card_play(self, hand_position: int, game_state: Dict) -> bool:
         """Validate that the predicted card play is legal"""
-        combat_state = game_state.get('combat_state', {})
-        hand = combat_state.get('hand', [])
+        combat_state = game_state.get("combat_state", {})
+        hand = combat_state.get("hand", [])
 
         # Check if hand position exists
         if hand_position >= len(hand):
-            self.logger.error(f"Hand position {hand_position} out of range (hand size: {len(hand)})")
+            self.logger.error(
+                f"Hand position {hand_position} out of range (hand size: {len(hand)})"
+            )
             return False
 
         # Check if card is playable
         card = hand[hand_position]
-        is_playable = card.get('is_playable', False)
+        is_playable = card.get("is_playable", False)
 
         if not is_playable:
-            self.logger.error(f"Card at position {hand_position} is not playable: {card.get('name', 'Unknown')}")
+            self.logger.error(
+                f"Card at position {hand_position} is not playable: {card.get('name', 'Unknown')}"
+            )
             return False
 
         return True
