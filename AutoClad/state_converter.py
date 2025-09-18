@@ -46,11 +46,20 @@ class StateConverter:
 
     def _is_in_combat(self, game_state: Dict) -> bool:
         """Check if we're in a combat state"""
-        return (
-            "combat_state" in game_state
-            and game_state.get("ready_for_command", False)
-            and game_state.get("in_game", False)
-        )
+        available_commands = game_state.get("available_commands", [])
+        if "play" not in available_commands:
+            return False
+
+        # Also check that we have cards in hand
+        inner_game_state = game_state.get("game_state", {})
+        combat_state = inner_game_state.get("combat_state", {})
+        hand = combat_state.get("hand", [])
+
+        if len(hand) == 0:
+            self.logger.warning("Combat state detected but hand is empty - refusing to convert")
+            return False
+
+        return True
 
     def _convert_to_parser_format(self, game_state: Dict) -> Dict:
         """
@@ -62,7 +71,8 @@ class StateConverter:
         combat_state.player.max_hp → maxhealth
         etc.
         """
-        combat_state = game_state.get("combat_state", {})
+        inner_game_state = game_state.get("game_state", {})
+        combat_state = inner_game_state.get("combat_state", {})
         player = combat_state.get("player", {})
 
         # Convert to data_parser expected format

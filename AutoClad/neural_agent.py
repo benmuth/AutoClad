@@ -93,11 +93,44 @@ class NeuralAgent:
         try:
             # Check if we can handle this game state
             if not self.can_handle_state(game_state):
-                # Hand off to human for non-combat decisions
-                self.logger.info("Non-combat state detected, handing off to human")
-                self.logger.info("Agent pausing - human intervention required")
-                # For now, we'll exit and let human take over
-                sys.exit(0)
+                # Log extensive info and check for missing expected fields
+                available_commands = game_state.get("available_commands", [])
+                in_game = game_state.get("in_game")
+                ready_for_command = game_state.get("ready_for_command")
+                room_phase = game_state.get("room_phase")
+
+                # Check for missing expected fields
+                # if in_game is None:
+                #     self.logger.error("Missing 'in_game' field in game state")
+                # if ready_for_command is None:
+                #     self.logger.error("Missing 'ready_for_command' field in game state")
+                # if room_phase is None:
+                #     self.logger.error("Missing 'room_phase' field in game state")
+                # if not available_commands:
+                #     self.logger.error("Empty or missing 'available_commands' field in game state")
+
+                game_state_inner = game_state.get("game_state", {})
+                screen_type = game_state_inner.get("screen_type")
+                action_phase = game_state_inner.get("action_phase")
+
+                # if not game_state_inner:
+                #     self.logger.error("Missing 'game_state' field in game state")
+                # if screen_type is None:
+                #     self.logger.error("Missing 'screen_type' in game_state")
+                # if action_phase is None:
+                #     self.logger.error("Missing 'action_phase' in game_state")
+
+                self.logger.info(
+                    f"Non-combat state: in_game={in_game}, ready_for_command={ready_for_command}, "
+                    f"room_phase='{room_phase}', screen_type='{screen_type}', action_phase='{action_phase}', "
+                    f"available_commands={available_commands}"
+                )
+
+                # Wait for combat - let humans handle non-combat decisions
+                self.logger.info(
+                    "Waiting for combat state - human should handle non-combat decisions"
+                )
+                return "WAIT 200"  # Wait 200 frames (~3.3 seconds) then check again
 
             # Convert game state to features
             features = self.state_converter.convert_to_features(game_state)
@@ -127,7 +160,6 @@ class NeuralAgent:
         return (
             game_state.get("in_game", False)
             and game_state.get("ready_for_command", False)
-            and "combat_state" in game_state
             and self.is_card_play_state(game_state)
         )
 
