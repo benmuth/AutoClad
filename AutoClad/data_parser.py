@@ -48,12 +48,11 @@ def create_feature_vector(state: Dict) -> List[float]:
     """Convert game state to feature vector for neural network."""
     features = []
 
-    # Basic game state features
+    # Basic game state features (remove max health and pile counts)
     features.extend(
         [
             state.get("turn", 0),
             state.get("health", 0),
-            state.get("maxhealth", 100),
             state.get("energy", 0),
             state.get("block", 0),
             state.get("enemy0_hp", 0),  # Jaw Worm HP
@@ -63,15 +62,6 @@ def create_feature_vector(state: Dict) -> List[float]:
     # Hand cards (5 cards, pad with -1 if needed)
     hand_cards = extract_hand_cards(state)
     features.extend(hand_cards)
-
-    # Draw pile size
-    features.append(state.get("draw_size", 0))
-
-    # Discard pile size
-    features.append(state.get("discard_size", 0))
-
-    # Exhaust pile size
-    features.append(state.get("exhaust_size", 0))
 
     # Potions (simplified to count of non-empty slots) - COMMENTED OUT FOR NOW
     # potion_count = 0

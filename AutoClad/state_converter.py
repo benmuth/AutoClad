@@ -17,13 +17,13 @@ class StateConverter:
 
     def convert_to_features(self, game_state: Dict) -> List[float]:
         """
-        Convert CommunicationMod JSON to 15-element feature vector using data_parser.py logic.
+        Convert CommunicationMod JSON to 11-element feature vector using data_parser.py logic.
 
         Args:
             game_state: CommunicationMod JSON game state
 
         Returns:
-            List of 15 features matching data_parser.py exactly
+            List of 11 features: [turn, health, energy, block, enemy_hp, hand0-4, potion_count]
         """
         try:
             # Validate that we're in combat
@@ -75,17 +75,13 @@ class StateConverter:
         combat_state = inner_game_state.get("combat_state", {})
         player = combat_state.get("player", {})
 
-        # Convert to data_parser expected format
+        # Convert to data_parser expected format (remove max health and pile counts)
         parsed_state = {
             "turn": combat_state.get("turn", 0),
             "health": player.get("current_hp", 0),
-            "maxhealth": player.get("max_hp", 100),
             "energy": player.get("energy", 0),
             "block": player.get("block", 0),
             "enemy0_hp": self._get_enemy_hp(combat_state),
-            "draw_size": len(combat_state.get("draw_pile", [])),
-            "discard_size": len(combat_state.get("discard_pile", [])),
-            "exhaust_size": len(combat_state.get("exhaust_pile", [])),
         }
 
         # Convert hand cards to data_parser format
