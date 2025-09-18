@@ -123,12 +123,19 @@ class NeuralModel:
 
     def get_action_name(self, action: int) -> str:
         """Convert action number to human-readable name"""
-        action_names = {
-            0: "Play Hand Card 0",
-            1: "Play Hand Card 1",
-            2: "Play Hand Card 2",
-            3: "Play Hand Card 3",
-            4: "Play Hand Card 4",
-            5: "End Turn",
-        }
-        return action_names.get(action, f"Unknown Action {action}")
+        # Import here to avoid circular dependency
+        from data_parser import get_card_id_to_class_mapping, get_card_names_mapping
+
+        if action == 42:
+            return "End Turn"
+
+        # Get card mappings
+        class_to_card = {v: k for k, v in get_card_id_to_class_mapping().items()}
+        card_names = get_card_names_mapping()
+
+        if action in class_to_card:
+            card_id = class_to_card[action]
+            card_name = card_names.get(card_id, f"CardId_{card_id}")
+            return f"Play {card_name}"
+
+        return f"Unknown Action {action}"

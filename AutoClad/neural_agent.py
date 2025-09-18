@@ -36,7 +36,7 @@ class NeuralAgent:
             self.logger.info("NeuralAgent initialized successfully")
         except Exception as e:
             self.logger.error(f"Failed to initialize NeuralAgent: {e}")
-            sys.exit(1)
+            raise RuntimeError(f"NeuralAgent initialization failed: {e}")
 
     def setup_logging(self, log_file: str) -> None:
         """Setup file-based logging to avoid stdout pollution"""
@@ -69,23 +69,31 @@ class NeuralAgent:
                     game_state = json.loads(line.strip())
                     self.logger.debug(f"Received game state: {game_state.keys()}")
 
+                    # Log error details if present
+                    if 'error' in game_state:
+                        self.logger.error(f"CommunicationMod error: {game_state.get('error', 'Unknown error')}")
+
                     # Get action from neural network
                     command = self.get_action(game_state)
 
-                    # Send command to CommunicationMod
-                    print(command, flush=True)
-                    self.logger.info(f"Sent command: {command}")
+                    # Only send command if it's not empty
+                    if command:
+                        print(command, flush=True)
+                        self.logger.info(f"Sent command: {command}")
+                    else:
+                        self.logger.info("No valid command to send - staying silent")
 
                 except json.JSONDecodeError as e:
                     self.logger.error(f"Invalid JSON received: {e}")
-                    print("END", flush=True)  # Safe fallback
+                    # Don't send anything for JSON errors - wait for valid input
                 except Exception as e:
                     self.logger.error(f"Error in protocol loop: {e}")
-                    print("END", flush=True)  # Safe fallback
+                    # Don't send anything for unexpected errors - continue loop
 
         except Exception as e:
             self.logger.error(f"Fatal error in main loop: {e}")
-            sys.exit(1)
+            # Don't send any command - let the loop continue and handle gracefully
+            return
 
     def get_action(self, game_state: Dict) -> str:
         """
@@ -133,11 +141,16 @@ class NeuralAgent:
                     f"available_commands={available_commands}"
                 )
 
-                # Wait for combat - let humans handle non-combat decisions
-                self.logger.info(
-                    "Waiting for combat state - human should handle non-combat decisions"
-                )
-                return "WAIT 200"  # Wait 200 frames (~3.3 seconds) then check again
+                # Only send valid commands based on what's available
+                if "wait" in available_commands:
+                    self.logger.info("Sending WAIT - human should handle non-combat decisions")
+                    return "WAIT 200"
+                elif "state" in available_commands:
+                    self.logger.info("Sending STATE to refresh game state")
+                    return "STATE"
+                else:
+                    self.logger.info(f"No valid waiting commands available from {available_commands} - staying silent")
+                    return ""
 
             # Convert game state to features
             features = self.state_converter.convert_to_features(game_state)
@@ -147,6 +160,67 @@ class NeuralAgent:
 
             # Get neural network prediction
             predicted_action, probabilities = self.neural_model.predict(features)
+
+            # Apply action validation and fallback logic
+            current_energy = self.get_current_energy(game_state)
+            original_predicted_action = predicted_action
+
+            # Check if we need fallback: End Turn with energy OR invalid card prediction
+            needs_fallback = False
+            fallback_reason = ""
+
+            if predicted_action == 42 and current_energy > 0:
+                needs_fallback = True
+                fallback_reason = f"Cannot end turn with {current_energy} energy remaining"
+            elif predicted_action != 42:
+                # Check if predicted card is actually playable
+                if predicted_action in self.class_to_card:
+                    card_id = self.class_to_card[predicted_action]
+                    hand_position = self.find_card_in_hand(card_id, game_state)
+                    if hand_position is None:
+                        needs_fallback = True
+                        card_name = self.card_names.get(card_id, f"CardId_{card_id}")
+                        fallback_reason = f"Predicted card {card_name} not in hand or not playable"
+                else:
+                    needs_fallback = True
+                    fallback_reason = f"Invalid action prediction: {predicted_action}"
+
+            if needs_fallback:
+                self.logger.info(f"Action fallback triggered: {fallback_reason}")
+
+                # Try all actions in confidence order until we find a valid one
+                sorted_actions = sorted(enumerate(probabilities), key=lambda x: x[1], reverse=True)
+
+                for action_idx, prob in sorted_actions:
+                    if action_idx == 42:  # End Turn
+                        if current_energy == 0:
+                            # Only allow end turn if no energy
+                            self.logger.info(f"Found valid End Turn with 0 energy (confidence: {prob*100:.1f}%)")
+                            predicted_action = action_idx
+                            break
+                        else:
+                            self.logger.debug(f"Skipping End Turn - still have {current_energy} energy")
+                            continue
+                    else:
+                        # Try to play this card
+                        if action_idx in self.class_to_card:
+                            card_id = self.class_to_card[action_idx]
+                            hand_position = self.find_card_in_hand(card_id, game_state)
+                            if hand_position is not None:
+                                card_name = self.card_names.get(card_id, f"CardId_{card_id}")
+                                self.logger.info(f"Found valid fallback action: {card_name} at position {hand_position} (confidence: {prob*100:.1f}%)")
+                                predicted_action = action_idx
+                                break
+                            else:
+                                card_name = self.card_names.get(card_id, f"CardId_{card_id}")
+                                self.logger.debug(f"Card {card_name} not in hand or not playable (confidence: {prob*100:.1f}%)")
+                else:
+                    # Exhausted all options - forced to end turn
+                    if current_energy > 0:
+                        self.logger.warning(f"No valid actions found despite having {current_energy} energy - forced to end turn")
+                    else:
+                        self.logger.info("No valid card actions found and no energy - ending turn")
+                    predicted_action = 42
 
             # Convert prediction to CommunicationMod command
             command = self.convert_action_to_command(predicted_action, game_state)
@@ -162,9 +236,23 @@ class NeuralAgent:
                 action_name = f"Unknown Action {predicted_action}"
 
             confidence = probabilities[predicted_action] * 100
-            self.logger.info(
-                f"Neural decision: {action_name} (confidence: {confidence:.1f}%)"
-            )
+
+            # Log whether we used the original prediction or fallback
+            if original_predicted_action != predicted_action:
+                if original_predicted_action == 42:
+                    original_action_name = "End Turn"
+                elif original_predicted_action in self.class_to_card:
+                    card_id = self.class_to_card[original_predicted_action]
+                    card_name = self.card_names.get(card_id, f"CardId_{card_id}")
+                    original_action_name = f"Play {card_name}"
+                else:
+                    original_action_name = f"Unknown Action {original_predicted_action}"
+
+                original_confidence = probabilities[original_predicted_action] * 100
+                self.logger.info(f"Original neural decision: {original_action_name} (confidence: {original_confidence:.1f}%)")
+                self.logger.info(f"Final decision (fallback): {action_name} (confidence: {confidence:.1f}%)")
+            else:
+                self.logger.info(f"Neural decision: {action_name} (confidence: {confidence:.1f}%)")
 
             # Log top 5 action probabilities for debugging
             top_actions = sorted(enumerate(probabilities), key=lambda x: x[1], reverse=True)[:5]
@@ -184,8 +272,19 @@ class NeuralAgent:
 
         except Exception as e:
             self.logger.error(f"Action selection failed: {e}")
-            # Fatal error - exit rather than fallback
-            sys.exit(1)
+            # Check if we can send a valid command
+            available_commands = game_state.get("available_commands", [])
+            self.logger.info(f"Available commands for fallback: {available_commands}")
+
+            if "end" in available_commands:
+                self.logger.info("Sending END as fallback due to action selection failure")
+                return "END"
+            elif "wait" in available_commands:
+                self.logger.info("Sending WAIT as fallback due to action selection failure")
+                return "WAIT 200"
+            else:
+                self.logger.warning("No valid fallback commands available - returning empty response")
+                return ""
 
     def can_handle_state(self, game_state: Dict) -> bool:
         """Check if this is a combat state we can handle with neural network"""
@@ -239,6 +338,41 @@ class NeuralAgent:
 
         return None
 
+    def get_current_energy(self, game_state: Dict) -> int:
+        """Get the player's current energy from game state"""
+        inner_game_state = game_state.get("game_state", {})
+        combat_state = inner_game_state.get("combat_state", {})
+        player = combat_state.get("player", {})
+        return player.get("energy", 0)
+
+    def find_target_enemy(self, game_state: Dict) -> Optional[int]:
+        """
+        Find the first alive enemy to target.
+
+        Args:
+            game_state: CommunicationMod game state
+
+        Returns:
+            0-indexed enemy position if found, None otherwise
+        """
+        inner_game_state = game_state.get("game_state", {})
+        combat_state = inner_game_state.get("combat_state", {})
+        monsters = combat_state.get("monsters", [])
+
+        # Find first alive (non-gone) enemy
+        for i, monster in enumerate(monsters):
+            is_gone = monster.get("is_gone", False)
+            current_hp = monster.get("current_hp", 0)
+
+            # Target enemies that are alive (not gone and have HP > 0)
+            if not is_gone and current_hp > 0:
+                monster_name = monster.get("name", f"Monster_{i}")
+                self.logger.debug(f"Targeting enemy {i}: {monster_name} (HP: {current_hp})")
+                return i
+
+        self.logger.warning("No alive enemies found to target")
+        return None
+
     def convert_action_to_command(self, predicted_action: int, game_state: Dict) -> str:
         """
         Convert neural network prediction to CommunicationMod command.
@@ -263,8 +397,38 @@ class NeuralAgent:
 
                 if hand_position is not None:
                     # Convert 0-indexed to 1-indexed for CommunicationMod
-                    self.logger.info(f"Playing {card_name} at hand position {hand_position}")
-                    return f"PLAY {hand_position + 1}"
+                    base_command = f"PLAY {hand_position + 1}"
+
+                    # Check if card requires targeting
+                    inner_game_state = game_state.get("game_state", {})
+                    combat_state = inner_game_state.get("combat_state", {})
+                    hand = combat_state.get("hand", [])
+
+                    if hand_position < len(hand):
+                        card = hand[hand_position]
+                        has_target = card.get("has_target", False)
+
+                        if has_target:
+                            # Find the first alive enemy to target (0-indexed)
+                            target_index = self.find_target_enemy(game_state)
+                            if target_index is not None:
+                                command = f"{base_command} {target_index}"
+                                self.logger.info(f"Playing {card_name} at hand position {hand_position} targeting enemy {target_index} -> command: '{command}'")
+                            else:
+                                # No valid target found
+                                self.logger.warning(f"Card {card_name} requires target but no valid enemy found")
+                                return "END"
+                        else:
+                            command = base_command
+                            self.logger.info(f"Playing {card_name} at hand position {hand_position} (no target) -> command: '{command}'")
+                    else:
+                        command = base_command
+                        self.logger.warning(f"Hand position {hand_position} out of range, playing without target check")
+
+                    # Log hand state for debugging
+                    self.logger.debug(f"Full hand state: {[(i, card.get('id', 'Unknown'), card.get('is_playable', False), card.get('has_target', False)) for i, card in enumerate(hand)]}")
+
+                    return command
                 else:
                     # Card not found in hand or not playable - try next best action
                     self.logger.warning(f"Predicted card {card_name} not found in hand or not playable")

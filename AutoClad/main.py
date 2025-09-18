@@ -36,7 +36,7 @@ class CardGameDataset(Dataset):
 class CardGameNet(nn.Module):
     """Neural network for card game decision making"""
 
-    def __init__(self, input_size, hidden_size1=512, hidden_size2=256):
+    def __init__(self, input_size, hidden_size1=128, hidden_size2=64):
         super(CardGameNet, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(input_size, hidden_size1),
@@ -364,15 +364,20 @@ if __name__ == "__main__":
     total_pairs = len(raw_states)
     if args.data_size is not None:
         if args.data_size > total_pairs:
-            print(f"Warning: Requested data size ({args.data_size:,} pairs) is larger than available data ({total_pairs:,} pairs).")
+            print(
+                f"Warning: Requested data size ({args.data_size:,} pairs) is larger than available data ({total_pairs:,} pairs)."
+            )
             print(f"Using all available data: {total_pairs:,} state-action pairs")
             data_size = total_pairs
         else:
             data_size = args.data_size
             percentage = (data_size / total_pairs) * 100
-            print(f"Using subset: {data_size:,}/{total_pairs:,} state-action pairs ({percentage:.1f}% of total)")
+            print(
+                f"Using subset: {data_size:,}/{total_pairs:,} state-action pairs ({percentage:.1f}% of total)"
+            )
             # Randomly sample the requested amount of data
             import numpy as np
+
             indices = np.random.choice(total_pairs, size=data_size, replace=False)
             raw_states = raw_states[indices]
             raw_actions = raw_actions[indices]
