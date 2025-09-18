@@ -76,6 +76,22 @@ build-with-libtorch:
 train-neural-model:
     cd AutoClad && uv run main.py
 
+# Train neural network with custom epochs
+train-neural epochs="100":
+    cd AutoClad && uv run main.py --epochs {{epochs}}
+
+# Test neural network integration components
+test-neural:
+    cd AutoClad && python test_neural_integration.py
+
+# Run neural agent with CommunicationMod protocol (requires trained model)
+run-neural-agent:
+    cd AutoClad && python neural_agent.py
+
+# Generate sample CommunicationMod state for testing
+mock-neural-state:
+    cd AutoClad && echo '{"ready_for_command": true, "in_game": true, "available_commands": ["play", "end"], "combat_state": {"turn": 1, "player": {"current_hp": 80, "max_hp": 80, "energy": 3, "block": 0}, "monsters": [{"current_hp": 42}], "hand": [{"id": "Strike_R", "name": "Strike", "is_playable": true}], "draw_pile": [], "discard_pile": [], "exhaust_pile": []}, "potions": [{"id": "Potion Slot"}]}' | python neural_agent.py
+
 # Run MCTS test from save file
 test-mcts savefile simulations:
     just build
@@ -221,6 +237,9 @@ executables:
     @echo "  just run-agent simple  # Run simple agent on all scenarios"
     @echo "  just run-agent neural --scenario=jaw_worm  # Run neural agent on jaw_worm scenarios"
     @echo "  just test agent_mt 1 1 0 1984 1 true  # Run AI agent test"
+    @echo "  just train-neural-model  # Train neural network model"
+    @echo "  just test-neural    # Test neural network integration"
+    @echo "  just run-neural-agent   # Run neural CommunicationMod agent"
 
 # Show available test commands
 test-help:

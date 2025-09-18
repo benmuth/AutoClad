@@ -352,6 +352,7 @@ namespace sts {
            << c.getName()
            << (c.upgraded ? "+" : "")
            << "," << std::to_string(c.uniqueId)
+           << "," << static_cast<int>(c.getId())
            << "," << static_cast<int>(c.cost)
            << "," << static_cast<int>(c.costForTurn);
 
