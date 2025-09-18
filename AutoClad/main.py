@@ -104,7 +104,7 @@ def train_model(
     plot=False,
     early_stopping=False,
 ):
-    """Train the neural network and evaluate on train/val/test"""
+    """Train the neural network and evaluate on train/val during training, test after completion"""
 
     # Loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -115,14 +115,12 @@ def train_model(
         if param._grad is not None:
             param._grad.data = param._grad.data.to(device)
 
-    # Track metrics
+    # Track metrics (test metrics only recorded after training)
     history = {
         "train_loss": [],
         "val_loss": [],
-        "test_loss": [],
         "train_acc": [],
         "val_acc": [],
-        "test_acc": [],
     }
 
     # Enable interactive plotting if requested
@@ -183,36 +181,19 @@ def train_model(
                 val_total += batch_actions.size(0)
                 val_correct += (predicted == batch_actions).sum().item()
 
-        # Test phase (just like validation)
-        test_loss, test_correct, test_total = 0.0, 0, 0
-        with torch.no_grad():
-            for batch_states, batch_actions in test_loader:
-                batch_states, batch_actions = (
-                    batch_states.to(device),
-                    batch_actions.to(device),
-                )
-                outputs = model(batch_states)
-                loss = criterion(outputs, batch_actions)
-                test_loss += loss.item()
-                _, predicted = torch.max(outputs.data, 1)
-                test_total += batch_actions.size(0)
-                test_correct += (predicted == batch_actions).sum().item()
+        # No test evaluation during training - save for final evaluation
 
-        # Store metrics
+        # Store metrics (only train/val during training)
         avg_train_loss = train_loss / len(train_loader)
         avg_val_loss = val_loss / len(val_loader)
-        avg_test_loss = test_loss / len(test_loader)
 
         train_acc = 100 * train_correct / train_total
         val_acc = 100 * val_correct / val_total
-        test_acc = 100 * test_correct / test_total
 
         history["train_loss"].append(avg_train_loss)
         history["val_loss"].append(avg_val_loss)
-        history["test_loss"].append(avg_test_loss)
         history["train_acc"].append(train_acc)
         history["val_acc"].append(val_acc)
-        history["test_acc"].append(test_acc)
 
         # Early stopping check
         if early_stopping:
@@ -234,7 +215,6 @@ def train_model(
                 print(f"Epoch [{epoch}/{num_epochs}]")
             print(f"Train Loss: {avg_train_loss:.4f}, Train Acc: {train_acc:.2f}%")
             print(f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.2f}%")
-            print(f"Test Loss: {avg_test_loss:.4f}, Test Acc: {test_acc:.2f}%")
             print("-" * 50)
 
         # Stop if no improvement for patience epochs
@@ -255,7 +235,6 @@ def train_model(
 
             ax1.plot(epochs, history["train_loss"], label="Train Loss")
             ax1.plot(epochs, history["val_loss"], label="Val Loss")
-            ax1.plot(epochs, history["test_loss"], label="Test Loss")
             ax1.set_xlabel("Epoch")
             ax1.set_ylabel("Loss")
             ax1.set_title("Loss over Epochs")
@@ -263,7 +242,6 @@ def train_model(
 
             ax2.plot(epochs, history["train_acc"], label="Train Acc")
             ax2.plot(epochs, history["val_acc"], label="Val Acc")
-            ax2.plot(epochs, history["test_acc"], label="Test Acc")
             ax2.set_xlabel("Epoch")
             ax2.set_ylabel("Accuracy (%)")
             ax2.set_title("Accuracy over Epochs")
@@ -276,6 +254,35 @@ def train_model(
     if plot:
         plt.ioff()
         plt.show()
+
+    # Final test evaluation after training is complete
+    print("\nEvaluating on test set...")
+    model.eval()
+    test_loss, test_correct, test_total = 0.0, 0, 0
+    with torch.no_grad():
+        for batch_states, batch_actions in test_loader:
+            batch_states, batch_actions = (
+                batch_states.to(device),
+                batch_actions.to(device),
+            )
+            outputs = model(batch_states)
+            loss = criterion(outputs, batch_actions)
+            test_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            test_total += batch_actions.size(0)
+            test_correct += (predicted == batch_actions).sum().item()
+
+    avg_test_loss = test_loss / len(test_loader)
+    test_acc = 100 * test_correct / test_total
+
+    print(f"Final Test Results:")
+    print(f"Test Loss: {avg_test_loss:.4f}, Test Acc: {test_acc:.2f}%")
+    print("-" * 50)
+
+    # Add test results to history for final reporting
+    history["final_test_loss"] = avg_test_loss
+    history["final_test_acc"] = test_acc
+
     return history
 
 
