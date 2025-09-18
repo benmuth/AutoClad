@@ -9,8 +9,8 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional
 
-from .neural_model import NeuralModel
-from .state_converter import StateConverter
+from neural_model import NeuralModel
+from state_converter import StateConverter
 
 
 class NeuralAgent:

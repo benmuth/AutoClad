@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 # Import shared components from main.py
-from .main import CardGameNet, make_prediction
+from main import CardGameNet, make_prediction
 
 
 class NeuralModel:
@@ -34,7 +34,9 @@ class NeuralModel:
                 raise FileNotFoundError(f"Model file not found: {model_path}")
 
             # Device selection (matching main.py logic exactly)
-            if torch.backends.mps.is_available():
+            # TODO: make GPU device run faster than CPU device (don't use for now)
+            # if torch.backends.mps.is_available():
+            if False:
                 self.device = torch.device("mps")
                 self.logger.info(f"Using MPS device: {self.device}")
             else:
@@ -43,7 +45,7 @@ class NeuralModel:
 
             # Load model checkpoint
             self.logger.info(f"Loading model from: {model_path}")
-            checkpoint = torch.load(model_path, map_location=self.device)
+            checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
 
             # Validate checkpoint format
             required_keys = ['model_state_dict', 'scaler', 'input_size']

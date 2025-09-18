@@ -101,7 +101,7 @@ def train_model(
 
     # Loss function and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, foreach = True)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, foreach=True)
 
     for param in optimizer.state.values():
         param.data = param.data.to(device)
@@ -334,7 +334,7 @@ if __name__ == "__main__":
         val_loader,
         test_loader,
         device,
-        num_epochs=3000,
+        num_epochs=300,
         plot=args.plot,
     )
 

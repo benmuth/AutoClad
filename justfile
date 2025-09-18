@@ -82,15 +82,11 @@ train-neural epochs="100":
 
 # Test neural network integration components
 test-neural:
-    cd AutoClad && python test_neural_integration.py
+    cd AutoClad && uv run python test_neural_integration.py
 
 # Run neural agent with CommunicationMod protocol (requires trained model)
 run-neural-agent:
-    cd AutoClad && python neural_agent.py
-
-# Generate sample CommunicationMod state for testing
-mock-neural-state:
-    cd AutoClad && echo '{"ready_for_command": true, "in_game": true, "available_commands": ["play", "end"], "combat_state": {"turn": 1, "player": {"current_hp": 80, "max_hp": 80, "energy": 3, "block": 0}, "monsters": [{"current_hp": 42}], "hand": [{"id": "Strike_R", "name": "Strike", "is_playable": true}], "draw_pile": [], "discard_pile": [], "exhaust_pile": []}, "potions": [{"id": "Potion Slot"}]}' | python neural_agent.py
+    cd AutoClad && uv run python neural_agent.py
 
 # Run MCTS test from save file
 test-mcts savefile simulations:

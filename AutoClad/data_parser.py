@@ -68,13 +68,14 @@ def create_feature_vector(state: Dict) -> List[float]:
     # Exhaust pile size
     features.append(state.get('exhaust_size', 0))
     
-    # Potions (simplified to count of non-empty slots)
-    potion_count = 0
-    for i in range(3):
-        potion_key = f'potion{i}'
-        if state.get(potion_key, 1) != 1:  # 1 means empty slot
-            potion_count += 1
-    features.append(potion_count)
+    # Potions (simplified to count of non-empty slots) - COMMENTED OUT FOR NOW
+    # potion_count = 0
+    # for i in range(3):
+    #     potion_key = f'potion{i}'
+    #     if state.get(potion_key, 1) != 1:  # 1 means empty slot
+    #         potion_count += 1
+    # features.append(potion_count)
+    features.append(0)  # Placeholder for potion count
     
     return features
 
@@ -247,14 +248,14 @@ def parse_battle_context_section(lines: List[str], start_idx: int) -> Optional[D
                 pile_data = parse_card_pile_line(line)
                 state['exhaust_size'] = len(pile_data['cards'])
 
-            # Extract potions - look for EMPTY_POTION_SLOT vs actual potions
-            if 'EMPTY_POTION_SLOT' in line:
-                # Count non-empty potions (simplified)
-                empty_count = line.count('EMPTY_POTION_SLOT')
-                total_slots = 3  # Assume 3 potion slots
-                state['potion0'] = 1 if empty_count >= 1 else 2  # 1 = empty, 2 = has potion
-                state['potion1'] = 1 if empty_count >= 2 else 2
-                state['potion2'] = 1 if empty_count >= 3 else 2
+            # Extract potions - look for EMPTY_POTION_SLOT vs actual potions - COMMENTED OUT FOR NOW
+            # if 'EMPTY_POTION_SLOT' in line:
+            #     # Count non-empty potions (simplified)
+            #     empty_count = line.count('EMPTY_POTION_SLOT')
+            #     total_slots = 3  # Assume 3 potion slots
+            #     state['potion0'] = 1 if empty_count >= 1 else 2  # 1 = empty, 2 = has potion
+            #     state['potion1'] = 1 if empty_count >= 2 else 2
+            #     state['potion2'] = 1 if empty_count >= 3 else 2
 
         # Stop when we've closed all brackets
         if started and bracket_count == 0:
