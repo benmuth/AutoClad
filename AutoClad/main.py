@@ -36,15 +36,15 @@ class CardGameDataset(Dataset):
 class CardGameNet(nn.Module):
     """Neural network for card game decision making"""
 
-    def __init__(self, input_size, hidden_size1=256, hidden_size2=256):
+    def __init__(self, input_size, hidden_size1=512, hidden_size2=256):
         super(CardGameNet, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(input_size, hidden_size1),
             nn.ReLU(),
-            nn.Dropout(0.2),  # Regularization to prevent overfitting
+            nn.Dropout(0.3),  # Regularization to prevent overfitting
             nn.Linear(hidden_size1, hidden_size2),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.3),
             nn.Linear(hidden_size2, 6),  # 5 hand positions + 1 end turn action
             # Note: No softmax here - CrossEntropyLoss applies it internally
         )
