@@ -358,20 +358,35 @@ def parse_battle_file(file_path: str) -> List[Tuple[List[float], int]]:
     return state_action_pairs
 
 
+def get_card_id_to_class_mapping():
+    """Create mapping from CardId to class index for neural network."""
+    # All unique card IDs found in training data (excluding -1 for empty slots)
+    CARD_IDS = [
+        11, 14, 25, 27, 42, 52, 57, 67, 69, 73, 104, 112, 141, 147, 148, 149, 154,
+        170, 179, 184, 187, 193, 198, 202, 222, 234, 244, 249, 258, 261, 266, 289, 297,
+        300, 301, 311, 321, 329, 339, 347, 349, 362
+    ]
+
+    # Create mapping: CardId -> class index (0-41 for cards, 42 for end turn)
+    card_to_class = {card_id: i for i, card_id in enumerate(CARD_IDS)}
+
+    return card_to_class
+
+
 def convert_last_action_to_action_index(
     action_str: str, starting_state: Dict
 ) -> Optional[int]:
-    """Convert Last Player Action string to action index (0-5).
+    """Convert Last Player Action string to action index based on CardId.
 
     Args:
         action_str: The "Last Player Action" string like "(Defend,104,1,1)_target_0"
         starting_state: The state where the action was taken from
 
     Returns:
-        Action index: 0-4 for hand positions, 5 for END_TURN
+        Action index: 0-41 for card types, 42 for END_TURN
     """
     if action_str == "(end_turn)":
-        return 5
+        return 42  # END_TURN class index
 
     # Parse the action card details
     action_info = parse_last_player_action(action_str)
@@ -379,15 +394,16 @@ def convert_last_action_to_action_index(
         return None
 
     played_card_id = action_info["card_id"]
-    # Look through the starting state's hand to find any position with this card ID
-    for hand_pos in range(5):
-        hand_card_key = f"hand_card{hand_pos}"
-        if hand_card_key in starting_state:
-            if starting_state[hand_card_key] == played_card_id:
-                return hand_pos
 
-    # If we can't find a match, return None
-    return None
+    # Get the card ID to class mapping
+    card_to_class = get_card_id_to_class_mapping()
+
+    # Convert CardId to class index
+    if played_card_id in card_to_class:
+        return card_to_class[played_card_id]
+    else:
+        # Unknown card ID - skip this training example
+        return None
 
 
 def load_jaw_worm_data(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -423,22 +439,45 @@ def load_jaw_worm_data(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
     return states, actions
 
 
+def get_card_names_mapping():
+    """Create mapping from CardId to card name for display purposes."""
+    # Map of CardId -> Card Name (simplified names based on enum)
+    card_names = {
+        11: "ANGER", 14: "ARMAMENTS", 25: "BASH", 27: "BATTLE_TRANCE", 42: "BODY_SLAM",
+        52: "BURNING_PACT", 57: "CARNAGE", 67: "CLEAVE", 69: "CLOTHESLINE", 73: "COMBUST",
+        104: "DEFEND_RED", 112: "DISARM", 141: "EXHUME", 147: "FEED", 148: "FEEL_NO_PAIN",
+        149: "FIEND_FIRE", 154: "FLAME_BARRIER", 170: "GHOSTLY_ARMOR", 179: "HEADBUTT",
+        184: "HEMOKINESIS", 187: "IMMOLATE", 193: "INFLAME", 198: "IRON_WAVE", 202: "JUGGERNAUT",
+        222: "METALLICIZE", 234: "OFFERING", 244: "PERFECTED_STRIKE", 249: "POMMEL_STRIKE",
+        258: "PUMMEL", 261: "RAGE", 266: "REAPER", 289: "SECOND_WIND", 297: "SEVER_SOUL",
+        300: "SHOCKWAVE", 301: "SHRUG_IT_OFF", 311: "SPOT_WEAKNESS", 321: "STRIKE_RED",
+        329: "SWORD_BOOMERANG", 339: "THUNDERCLAP", 347: "TWIN_STRIKE", 349: "UPPERCUT",
+        362: "WILD_STRIKE"
+    }
+    return card_names
+
+
 def analyze_action_distribution(actions: np.ndarray):
     """Analyze the distribution of actions in the dataset."""
     unique_actions, counts = np.unique(actions, return_counts=True)
 
     print("\nAction Distribution:")
-    action_names = {
-        0: "Play Hand Card 0",
-        1: "Play Hand Card 1",
-        2: "Play Hand Card 2",
-        3: "Play Hand Card 3",
-        4: "Play Hand Card 4",
-        5: "End Turn",
-    }
+
+    # Get mappings
+    card_to_class = get_card_id_to_class_mapping()
+    class_to_card = {v: k for k, v in card_to_class.items()}  # Reverse mapping
+    card_names = get_card_names_mapping()
 
     for action, count in zip(unique_actions, counts):
-        name = action_names.get(action, f"Unknown Action {action}")
+        if action == 42:
+            name = "End Turn"
+        elif action in class_to_card:
+            card_id = class_to_card[action]
+            card_name = card_names.get(card_id, f"CardId_{card_id}")
+            name = f"Play {card_name}"
+        else:
+            name = f"Unknown Action {action}"
+
         percentage = (count / len(actions)) * 100
         print(f"  {name}: {count} ({percentage:.1f}%)")
 

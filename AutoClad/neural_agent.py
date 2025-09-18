@@ -11,6 +11,7 @@ from typing import Dict, Optional
 
 from neural_model import NeuralModel
 from state_converter import StateConverter
+from data_parser import get_card_id_to_class_mapping, get_card_names_mapping
 
 
 class NeuralAgent:
@@ -26,6 +27,12 @@ class NeuralAgent:
         try:
             self.neural_model = NeuralModel(model_path, self.logger)
             self.state_converter = StateConverter(self.logger)
+
+            # Setup card mappings for converting predictions to actions
+            self.card_to_class = get_card_id_to_class_mapping()
+            self.class_to_card = {v: k for k, v in self.card_to_class.items()}
+            self.card_names = get_card_names_mapping()
+
             self.logger.info("NeuralAgent initialized successfully")
         except Exception as e:
             self.logger.error(f"Failed to initialize NeuralAgent: {e}")
@@ -144,17 +151,34 @@ class NeuralAgent:
             # Convert prediction to CommunicationMod command
             command = self.convert_action_to_command(predicted_action, game_state)
 
-            # Log decision
-            action_name = self.neural_model.get_action_name(predicted_action)
+            # Log decision with card name
+            if predicted_action == 42:
+                action_name = "End Turn"
+            elif predicted_action in self.class_to_card:
+                card_id = self.class_to_card[predicted_action]
+                card_name = self.card_names.get(card_id, f"CardId_{card_id}")
+                action_name = f"Play {card_name}"
+            else:
+                action_name = f"Unknown Action {predicted_action}"
+
             confidence = probabilities[predicted_action] * 100
             self.logger.info(
                 f"Neural decision: {action_name} (confidence: {confidence:.1f}%)"
             )
 
-            # Log all action probabilities for debugging
-            action_names = ["Hand 0", "Hand 1", "Hand 2", "Hand 3", "Hand 4", "End Turn"]
-            for i, (name, prob) in enumerate(zip(action_names, probabilities)):
-                self.logger.info(f"  {name}: {prob*100:.1f}%")
+            # Log top 5 action probabilities for debugging
+            top_actions = sorted(enumerate(probabilities), key=lambda x: x[1], reverse=True)[:5]
+            self.logger.info("Top 5 predicted actions:")
+            for i, (action_idx, prob) in enumerate(top_actions):
+                if action_idx == 42:
+                    name = "End Turn"
+                elif action_idx in self.class_to_card:
+                    card_id = self.class_to_card[action_idx]
+                    card_name = self.card_names.get(card_id, f"CardId_{card_id}")
+                    name = f"Play {card_name}"
+                else:
+                    name = f"Unknown Action {action_idx}"
+                self.logger.info(f"  {i+1}. {name}: {prob*100:.1f}%")
 
             return command
 
@@ -182,31 +206,76 @@ class NeuralAgent:
 
         return can_play or can_end
 
+    def find_card_in_hand(self, card_id: int, game_state: Dict) -> Optional[int]:
+        """
+        Find the hand position of a specific card by CardId.
+
+        Args:
+            card_id: The CardId enum value to search for
+            game_state: CommunicationMod game state
+
+        Returns:
+            Hand position (0-based) if found, None otherwise
+        """
+        # Get combat state and hand
+        inner_game_state = game_state.get("game_state", {})
+        combat_state = inner_game_state.get("combat_state", {})
+        hand = combat_state.get("hand", [])
+
+        # Look for the card in hand using state_converter's mapping
+        for i, card in enumerate(hand):
+            try:
+                card_numeric_id = self.state_converter._convert_card_to_numeric_id(card)
+                if card_numeric_id == card_id:
+                    # Also check if the card is playable
+                    is_playable = card.get("is_playable", False)
+                    if is_playable:
+                        return i
+                    else:
+                        self.logger.debug(f"Found {self.card_names.get(card_id, f'CardId_{card_id}')} at position {i} but it's not playable")
+            except Exception as e:
+                self.logger.debug(f"Error checking card at position {i}: {e}")
+                continue
+
+        return None
+
     def convert_action_to_command(self, predicted_action: int, game_state: Dict) -> str:
         """
         Convert neural network prediction to CommunicationMod command.
 
         Args:
-            predicted_action: 0-4 for hand positions, 5 for end turn
+            predicted_action: 0-41 for card types, 42 for end turn
             game_state: CommunicationMod game state for validation
 
         Returns:
             CommunicationMod command string
         """
-        if predicted_action == 5:
+        if predicted_action == 42:
             return "END"
-        elif 0 <= predicted_action <= 4:
-            # Validate that hand position exists and is playable
-            if self.validate_card_play(predicted_action, game_state):
-                # Convert 0-indexed to 1-indexed for CommunicationMod
-                return f"PLAY {predicted_action + 1}"
+        elif 0 <= predicted_action <= 41:
+            # Convert class index to CardId
+            if predicted_action in self.class_to_card:
+                card_id = self.class_to_card[predicted_action]
+                card_name = self.card_names.get(card_id, f"CardId_{card_id}")
+
+                # Find this card in the current hand
+                hand_position = self.find_card_in_hand(card_id, game_state)
+
+                if hand_position is not None:
+                    # Convert 0-indexed to 1-indexed for CommunicationMod
+                    self.logger.info(f"Playing {card_name} at hand position {hand_position}")
+                    return f"PLAY {hand_position + 1}"
+                else:
+                    # Card not found in hand or not playable - try next best action
+                    self.logger.warning(f"Predicted card {card_name} not found in hand or not playable")
+                    # For now, fall back to END - could implement backup logic here
+                    return "END"
             else:
-                self.logger.error(f"Invalid card play at position {predicted_action}")
-                # Fatal error - don't fallback to END
-                sys.exit(1)
+                self.logger.error(f"Invalid class index: {predicted_action}")
+                return "END"
         else:
             self.logger.error(f"Invalid action prediction: {predicted_action}")
-            sys.exit(1)
+            return "END"
 
     def validate_card_play(self, hand_position: int, game_state: Dict) -> bool:
         """Validate that the predicted card play is legal"""

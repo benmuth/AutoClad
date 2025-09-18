@@ -45,7 +45,7 @@ class CardGameNet(nn.Module):
             nn.Linear(hidden_size1, hidden_size2),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(hidden_size2, 6),  # 5 hand positions + 1 end turn action
+            nn.Linear(hidden_size2, 43),  # 42 card types + 1 end turn action
             # Note: No softmax here - CrossEntropyLoss applies it internally
         )
 
@@ -297,8 +297,8 @@ def make_prediction(model, game_state, scaler, device):
         device: torch device (cpu, mps, cuda)
 
     Returns:
-        predicted_action: which action to take (0-4: hand positions, 5: end turn)
-        probabilities: confidence scores for each action (0-4: hand positions, 5: end turn)
+        predicted_action: which action to take (0-41: card types, 42: end turn)
+        probabilities: confidence scores for each action (0-41: card types, 42: end turn)
     """
     model.eval()
 
@@ -335,6 +335,12 @@ if __name__ == "__main__":
         default=False,
         help="Enable early stopping based on validation loss",
     )
+    parser.add_argument(
+        "--data-size",
+        type=int,
+        default=None,
+        help="Number of state-action pairs to use for training (default: use all available data)",
+    )
     args = parser.parse_args()
 
     # TODO: make GPU device run faster than CPU device (don't use for now)
@@ -354,6 +360,25 @@ if __name__ == "__main__":
         print("Failed to load data. Exiting.")
         exit(1)
 
+    # Subset data if requested
+    total_pairs = len(raw_states)
+    if args.data_size is not None:
+        if args.data_size > total_pairs:
+            print(f"Warning: Requested data size ({args.data_size:,} pairs) is larger than available data ({total_pairs:,} pairs).")
+            print(f"Using all available data: {total_pairs:,} state-action pairs")
+            data_size = total_pairs
+        else:
+            data_size = args.data_size
+            percentage = (data_size / total_pairs) * 100
+            print(f"Using subset: {data_size:,}/{total_pairs:,} state-action pairs ({percentage:.1f}% of total)")
+            # Randomly sample the requested amount of data
+            import numpy as np
+            indices = np.random.choice(total_pairs, size=data_size, replace=False)
+            raw_states = raw_states[indices]
+            raw_actions = raw_actions[indices]
+    else:
+        print(f"Using all available data: {total_pairs:,} state-action pairs")
+
     # 2. Prepare data (normalize features)
     states, actions, scaler = prepare_data(raw_states, raw_actions)
 
@@ -362,6 +387,12 @@ if __name__ == "__main__":
     train_size = int(0.7 * len(dataset))
     val_size = int(0.15 * len(dataset))
     test_size = len(dataset) - train_size - val_size
+
+    print(f"\nDataset splits:")
+    print(f"  Training:   {train_size:,} examples ({train_size/len(dataset)*100:.1f}%)")
+    print(f"  Validation: {val_size:,} examples ({val_size/len(dataset)*100:.1f}%)")
+    print(f"  Test:       {test_size:,} examples ({test_size/len(dataset)*100:.1f}%)")
+    print(f"  Total:      {len(dataset):,} examples")
 
     train_dataset, val_dataset, test_dataset = random_split(
         dataset, [train_size, val_size, test_size]
@@ -375,8 +406,7 @@ if __name__ == "__main__":
     input_size = states.shape[1]  # Size of feature vector from real data
     model = CardGameNet(input_size).to(device)
 
-    print(f"Model created with input size: {input_size}")
-    print(f"Training on {len(train_dataset)} examples")
+    print(f"\nModel created with input size: {input_size} features")
     print("Starting training...")
 
     _ = train_model(
