@@ -262,6 +262,22 @@ inline std::vector<GameContext> loadScenariosFromDirectory(const std::string& di
     return gameContexts;
 }
 
+inline std::vector<GameContext> loadScenariosFromMultipleDirectories(const std::vector<std::string>& directoryPaths) {
+    std::vector<GameContext> allGameContexts;
+
+    for (const auto& directory : directoryPaths) {
+        if (std::filesystem::exists(directory)) {
+            auto scenariosFromDir = loadScenariosFromDirectory(directory);
+            std::cout << "Loaded " << scenariosFromDir.size() << " scenarios from " << directory << std::endl;
+            allGameContexts.insert(allGameContexts.end(), scenariosFromDir.begin(), scenariosFromDir.end());
+        } else {
+            std::cout << "Directory " << directory << " does not exist, skipping." << std::endl;
+        }
+    }
+
+    return allGameContexts;
+}
+
 // Snapshot formatting helper functions
 
 inline bool isAttackCard(CardId id) {

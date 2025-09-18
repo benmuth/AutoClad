@@ -263,9 +263,13 @@ int main(int argc, char* argv[]) {
         snapshotDir = "data/agent_battles/" + agentName;
     }
 
-    // Load all scenarios from the scenarios directory
+    // Load all scenarios from multiple directories
     // std::vector<GameContext> allScenarios = sts::utils::loadScenariosFromDirectory("battle/scenarios/");
-    std::vector<GameContext> allScenarios = sts::utils::loadScenariosFromDirectory("battle/generated_scenarios/jaw_worm/");
+    std::vector<std::string> scenarioDirs = {
+        "battle/generated_scenarios/jaw_worm/",
+        "battle/randomized_scenarios/"
+    };
+    std::vector<GameContext> allScenarios = sts::utils::loadScenariosFromMultipleDirectories(scenarioDirs);
 
 
     // Filter scenarios based on command line arguments
