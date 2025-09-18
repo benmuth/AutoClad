@@ -4,9 +4,10 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, random_split
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+
 # from sklearn.model_selection import train_test_split
 import pandas as pd
-import matplotlib.pyplot as plt
+import argparse
 
 
 class CardGameDataset(Dataset):
@@ -22,6 +23,8 @@ class CardGameDataset(Dataset):
         self.actions = torch.LongTensor(
             actions
         )  # LongTensor for classification targets
+        # print(self.states.shape)
+        # print(self.actions.shape)
 
     def __len__(self):
         return len(self.states)
@@ -33,7 +36,7 @@ class CardGameDataset(Dataset):
 class CardGameNet(nn.Module):
     """Neural network for card game decision making"""
 
-    def __init__(self, input_size, hidden_size1=16, hidden_size2=16):
+    def __init__(self, input_size, hidden_size1=256, hidden_size2=256):
         super(CardGameNet, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(input_size, hidden_size1),
@@ -91,12 +94,19 @@ def load_jaw_worm_data():
         return None, None
 
 
-def train_model(model, train_loader, val_loader, test_loader, device, num_epochs=50):
+def train_model(
+    model, train_loader, val_loader, test_loader, device, num_epochs=300, plot=False
+):
     """Train the neural network and evaluate on train/val/test"""
 
     # Loss function and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, foreach = True)
+
+    for param in optimizer.state.values():
+        param.data = param.data.to(device)
+        if param._grad is not None:
+            param._grad.data = param._grad.data.to(device)
 
     # Track metrics
     history = {
@@ -108,9 +118,12 @@ def train_model(model, train_loader, val_loader, test_loader, device, num_epochs
         "test_acc": [],
     }
 
-    # Enable interactive plotting
-    plt.ion()
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    # Enable interactive plotting if requested
+    if plot:
+        import matplotlib.pyplot as plt
+
+        plt.ion()
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
     # Training loop
     for epoch in range(num_epochs):
@@ -120,8 +133,15 @@ def train_model(model, train_loader, val_loader, test_loader, device, num_epochs
         train_correct = 0
         train_total = 0
 
+        # print(train_loader.)
         for batch_states, batch_actions in train_loader:
-            batch_states, batch_actions = batch_states.to(device), batch_actions.to(device)
+            # batch_states = torch.stack(batch_states).to(device)
+            # batch_actions = torch.stack(batch_actions).to(device)
+            # print(batch_states.shape)
+            batch_states, batch_actions = (
+                batch_states.to(device),
+                batch_actions.to(device),
+            )
             optimizer.zero_grad()
             outputs = model(batch_states)
             loss = criterion(outputs, batch_actions)
@@ -138,7 +158,10 @@ def train_model(model, train_loader, val_loader, test_loader, device, num_epochs
         val_loss, val_correct, val_total = 0.0, 0, 0
         with torch.no_grad():
             for batch_states, batch_actions in val_loader:
-                batch_states, batch_actions = batch_states.to(device), batch_actions.to(device)
+                batch_states, batch_actions = (
+                    batch_states.to(device),
+                    batch_actions.to(device),
+                )
                 outputs = model(batch_states)
                 loss = criterion(outputs, batch_actions)
                 val_loss += loss.item()
@@ -150,7 +173,10 @@ def train_model(model, train_loader, val_loader, test_loader, device, num_epochs
         test_loss, test_correct, test_total = 0.0, 0, 0
         with torch.no_grad():
             for batch_states, batch_actions in test_loader:
-                batch_states, batch_actions = batch_states.to(device), batch_actions.to(device)
+                batch_states, batch_actions = (
+                    batch_states.to(device),
+                    batch_actions.to(device),
+                )
                 outputs = model(batch_states)
                 loss = criterion(outputs, batch_actions)
                 test_loss += loss.item()
@@ -183,32 +209,35 @@ def train_model(model, train_loader, val_loader, test_loader, device, num_epochs
             print("-" * 50)
 
         # === Live Plot Update ===
-        ax1.clear()
-        ax2.clear()
+        if plot:
+            ax1.clear()
+            ax2.clear()
 
-        epochs = range(1, len(history["train_loss"]) + 1)
+            epochs = range(1, len(history["train_loss"]) + 1)
 
-        ax1.plot(epochs, history["train_loss"], label="Train Loss")
-        ax1.plot(epochs, history["val_loss"], label="Val Loss")
-        ax1.plot(epochs, history["test_loss"], label="Test Loss")
-        ax1.set_xlabel("Epoch")
-        ax1.set_ylabel("Loss")
-        ax1.set_title("Loss over Epochs")
-        ax1.legend()
+            ax1.plot(epochs, history["train_loss"], label="Train Loss")
+            ax1.plot(epochs, history["val_loss"], label="Val Loss")
+            ax1.plot(epochs, history["test_loss"], label="Test Loss")
+            ax1.set_xlabel("Epoch")
+            ax1.set_ylabel("Loss")
+            ax1.set_title("Loss over Epochs")
+            ax1.legend()
 
-        ax2.plot(epochs, history["train_acc"], label="Train Acc")
-        ax2.plot(epochs, history["val_acc"], label="Val Acc")
-        ax2.plot(epochs, history["test_acc"], label="Test Acc")
-        ax2.set_xlabel("Epoch")
-        ax2.set_ylabel("Accuracy (%)")
-        ax2.set_title("Accuracy over Epochs")
-        ax2.legend()
+            ax2.plot(epochs, history["train_acc"], label="Train Acc")
+            ax2.plot(epochs, history["val_acc"], label="Val Acc")
+            ax2.plot(epochs, history["test_acc"], label="Test Acc")
+            ax2.set_xlabel("Epoch")
+            ax2.set_ylabel("Accuracy (%)")
+            ax2.set_title("Accuracy over Epochs")
+            ax2.legend()
 
-        plt.tight_layout()
-        plt.pause(0.01)
+            # this slows the code down considerably
+            # plt.tight_layout()
+            # plt.pause(1)
 
-    plt.ioff()
-    plt.show()
+    if plot:
+        plt.ioff()
+        plt.show()
     return history
 
 
@@ -242,8 +271,24 @@ def make_prediction(model, game_state, scaler, device):
 
 # Example usage:
 if __name__ == "__main__":
-    # Check for MPS (Metal Performance Shaders) device on Apple Silicon
-    if torch.backends.mps.is_available():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Train neural network for card game decisions"
+    )
+    parser.add_argument(
+        "--plot", action="store_true", help="Enable matplotlib plotting during training"
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=100,
+        help="Number of training epochs (default: 200)",
+    )
+    args = parser.parse_args()
+
+    # TODO: make GPU device run faster than CPU device (don't use for now)
+    # if torch.backends.mps.is_available():
+    if False:
         device = torch.device("mps")
         print(f"Using MPS device: {device}")
     else:
@@ -271,9 +316,9 @@ if __name__ == "__main__":
         dataset, [train_size, val_size, test_size]
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16384, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=16384, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=16384, shuffle=False)
 
     # 4. Create and train model
     input_size = states.shape[1]  # Size of feature vector from real data
@@ -283,7 +328,15 @@ if __name__ == "__main__":
     print(f"Training on {len(train_dataset)} examples")
     print("Starting training...")
 
-    _ = train_model(model, train_loader, val_loader, test_loader, device, num_epochs=200)
+    _ = train_model(
+        model,
+        train_loader,
+        val_loader,
+        test_loader,
+        device,
+        num_epochs=3000,
+        plot=args.plot,
+    )
 
     # 5. Save the model
     torch.save(
@@ -300,11 +353,14 @@ if __name__ == "__main__":
     # Export model to TorchScript for C++ usage
     model.eval()
     example_input = torch.randn(1, input_size).to(device)
-    traced_model = torch.jit.trace(model, example_input)
-    traced_model.save("jaw_worm_model_traced.pt")
+    # traced_model = torch.jit.trace(model, example_input)
+    # traced_model.save("jaw_worm_model_traced.pt")
 
     # Save scaler parameters for C++ normalization
     import json
+
+    # compiled = torch.compile(model)
+    # print(compiled)
 
     scaler_params = {
         "mean": scaler.mean_.tolist(),
@@ -314,17 +370,17 @@ if __name__ == "__main__":
     with open("scaler_params.json", "w") as f:
         json.dump(scaler_params, f)
 
-    print("TorchScript model saved as 'jaw_worm_model_traced.pt'")
+    # print("TorchScript model saved as 'jaw_worm_model_traced.pt'")
     print("Scaler parameters saved as 'scaler_params.json'")
 
     # 6. Example prediction
-    example_state = raw_states[0]
-    predicted_action, probs = make_prediction(model, example_state, scaler, device)
-    action_names = ["Hand 0", "Hand 1", "Hand 2", "Hand 3", "Hand 4", "End Turn"]
-    print(f"\nExample prediction:")
-    print(f"Predicted action: {predicted_action} ({action_names[predicted_action]})")
-    print(f"Confidence scores:")
-    for i, (name, prob) in enumerate(zip(action_names, probs)):
-        marker = " ←" if i == predicted_action else ""
-        print(f"  {name}: {prob:.1%}{marker}")
-    print(f"Actual action was: {raw_actions[0]} ({action_names[raw_actions[0]]})")
+    # example_state = raw_states[0]
+    # predicted_action, probs = make_prediction(model, example_state, scaler, device)
+    # action_names = ["Hand 0", "Hand 1", "Hand 2", "Hand 3", "Hand 4", "End Turn"]
+    # print(f"\nExample prediction:")
+    # print(f"Predicted action: {predicted_action} ({action_names[predicted_action]})")
+    # print(f"Confidence scores:")
+    # for i, (name, prob) in enumerate(zip(action_names, probs)):
+    #     marker = " ←" if i == predicted_action else ""
+    #     print(f"  {name}: {prob:.1%}{marker}")
+    # print(f"Actual action was: {raw_actions[0]} ({action_names[raw_actions[0]]})")
