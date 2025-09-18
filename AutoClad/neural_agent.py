@@ -34,7 +34,7 @@ class NeuralAgent:
     def setup_logging(self, log_file: str) -> None:
         """Setup file-based logging to avoid stdout pollution"""
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.DEBUG,
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.FileHandler(log_file),
@@ -135,6 +135,9 @@ class NeuralAgent:
             # Convert game state to features
             features = self.state_converter.convert_to_features(game_state)
 
+            # Log the feature vector for debugging
+            self.logger.info(f"Feature vector: {features}")
+
             # Get neural network prediction
             predicted_action, probabilities = self.neural_model.predict(features)
 
@@ -147,6 +150,11 @@ class NeuralAgent:
             self.logger.info(
                 f"Neural decision: {action_name} (confidence: {confidence:.1f}%)"
             )
+
+            # Log all action probabilities for debugging
+            action_names = ["Hand 0", "Hand 1", "Hand 2", "Hand 3", "Hand 4", "End Turn"]
+            for i, (name, prob) in enumerate(zip(action_names, probabilities)):
+                self.logger.info(f"  {name}: {prob*100:.1f}%")
 
             return command
 

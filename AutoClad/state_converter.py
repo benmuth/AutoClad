@@ -117,10 +117,12 @@ class StateConverter:
         hand = combat_state.get("hand", [])
         parsed_state["hand_size"] = len(hand)
 
-        for i, card in enumerate(hand):
-            if i < 5:  # data_parser expects max 5 cards
-                card_id = self._convert_card_to_numeric_id(card)
+        for i in range(5):  # Always fill 5 slots
+            if i < len(hand):
+                card_id = self._convert_card_to_numeric_id(hand[i])
                 parsed_state[f"hand_card{i}"] = card_id
+            else:
+                parsed_state[f"hand_card{i}"] = -1  # Empty slot
 
         self.logger.debug(
             f"Hand: size={len(hand)}, cards={[parsed_state.get(f'hand_card{i}', -1) for i in range(5)]}"

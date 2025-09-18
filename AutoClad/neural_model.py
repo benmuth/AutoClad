@@ -99,10 +99,17 @@ class NeuralModel:
                     f"Feature vector size mismatch. Expected {self.input_size}, got {len(game_state_features)}"
                 )
 
+            # Log features before and after normalization for debugging
+            self.logger.debug(f"Raw features: {game_state_features}")
+
             # Use shared make_prediction function for exact compatibility
             predicted_action, probabilities = make_prediction(
                 self.model, game_state_features, self.scaler, self.device
             )
+
+            # Log normalized features
+            normalized = self.scaler.transform([game_state_features])[0]
+            self.logger.debug(f"Normalized features: {normalized.tolist()}")
 
             self.logger.debug(
                 f"Prediction: {predicted_action}, Probabilities: {probabilities}"
