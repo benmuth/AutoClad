@@ -9,20 +9,72 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import argparse
 
+# 42 card types + 1 end turn action
+num_actions = 43
+
+
+def get_action_mask(raw_states):
+    return [0, 0, 0, 0, 0].extend(False for state in raw_states[5:] if state > 0)
+
+
+def apply_action_mask(logits, mask, mask_value=-1e9):
+    """
+    Apply action mask to logits by setting invalid actions to very negative values.
+
+    Args:
+        logits: Raw model outputs [batch_size, num_actions]
+        mask: Boolean mask [batch_size, num_actions] where True = valid action
+        mask_value: Value to set for invalid actions (should be very negative)
+
+    Returns:
+        masked_logits: Logits with invalid actions masked
+    """
+    masked_logits = logits.clone()
+    masked_logits[~mask] = mask_value
+    return masked_logits
+
+
+class MaskedCrossEntropyLoss(nn.Module):
+    """Cross-entropy loss that automatically applies action masking"""
+
+    def __init__(self, num_actions, mask_value=-1e9):
+        super().__init__()
+        self.num_actions = num_actions
+        self.mask_value = mask_value
+        self.ce_loss = nn.CrossEntropyLoss()
+
+    def forward(self, logits, targets, states):
+        """
+        Args:
+            logits: Raw model outputs [batch_size, num_actions]
+            targets: True action labels [batch_size]
+            states: State information for generating masks [batch_size, state_dim]
+        """
+        # Generate action mask
+        action_mask = get_action_mask(states)
+
+        # Apply mask
+        masked_logits = apply_action_mask(logits, action_mask, self.mask_value)
+
+        # Compute standard cross-entropy loss
+        return self.ce_loss(masked_logits, targets)
+
 
 class CardGameDataset(Dataset):
     """Custom dataset for card game states and actions"""
 
-    def __init__(self, states, actions):
+    def __init__(self, states, actions, raw_states=None):
         """
         Args:
-            states: numpy array of game states (features)
+            states: numpy array of processed/normalized game states (features)
             actions: numpy array of chosen actions (hand positions 0-4)
+            raw_states: numpy array of raw game states (for action masking)
         """
         self.states = torch.FloatTensor(states)
         self.actions = torch.LongTensor(
             actions
         )  # LongTensor for classification targets
+        self.raw_states = torch.FloatTensor(raw_states) if raw_states is not None else None
         # print(self.states.shape)
         # print(self.actions.shape)
 
@@ -30,7 +82,10 @@ class CardGameDataset(Dataset):
         return len(self.states)
 
     def __getitem__(self, idx):
-        return self.states[idx], self.actions[idx]
+        if self.raw_states is not None:
+            return self.states[idx], self.actions[idx], self.raw_states[idx]
+        else:
+            return self.states[idx], self.actions[idx]
 
 
 class CardGameNet(nn.Module):
@@ -45,7 +100,7 @@ class CardGameNet(nn.Module):
             nn.Linear(hidden_size1, hidden_size2),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(hidden_size2, 43),  # 42 card types + 1 end turn action
+            nn.Linear(hidden_size2, num_actions),
             # Note: No softmax here - CrossEntropyLoss applies it internally
         )
 
@@ -84,6 +139,9 @@ def load_jaw_worm_data():
         states = data["states"]
         actions = data["actions"]
 
+        print("hand cards: ", states[0])
+        # print("hand : ", states[0])
+
         print(f"Loaded {len(states)} state-action pairs from Jaw Worm battles")
         print(f"Feature vector size: {states.shape[1]}")
 
@@ -100,6 +158,7 @@ def train_model(
     val_loader,
     test_loader,
     device,
+    raw_states,
     num_epochs,
     plot=False,
     early_stopping=False,
@@ -107,7 +166,7 @@ def train_model(
     """Train the neural network and evaluate on train/val during training, test after completion"""
 
     # Loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
+    criterion = MaskedCrossEntropyLoss(num_actions)
     optimizer = optim.Adam(model.parameters(), lr=0.001, foreach=True)
 
     for param in optimizer.state.values():
@@ -146,17 +205,24 @@ def train_model(
         train_total = 0
 
         # print(train_loader.)
-        for batch_states, batch_actions in train_loader:
-            # batch_states = torch.stack(batch_states).to(device)
-            # batch_actions = torch.stack(batch_actions).to(device)
-            # print(batch_states.shape)
+        for batch_data in train_loader:
+            if len(batch_data) == 3:  # includes raw states
+                batch_states, batch_actions, batch_raw_states = batch_data
+                batch_raw_states = batch_raw_states.to(device)
+            else:  # no raw states
+                batch_states, batch_actions = batch_data
+                batch_raw_states = None
+
             batch_states, batch_actions = (
                 batch_states.to(device),
                 batch_actions.to(device),
             )
             optimizer.zero_grad()
             outputs = model(batch_states)
-            loss = criterion(outputs, batch_actions)
+            if batch_raw_states is not None:
+                loss = criterion(outputs, batch_actions, batch_raw_states)
+            else:
+                loss = criterion(outputs, batch_actions)
             loss.backward()
             optimizer.step()
 
@@ -169,13 +235,23 @@ def train_model(
         model.eval()
         val_loss, val_correct, val_total = 0.0, 0, 0
         with torch.no_grad():
-            for batch_states, batch_actions in val_loader:
+            for batch_data in val_loader:
+                if len(batch_data) == 3:  # includes raw states
+                    batch_states, batch_actions, batch_raw_states = batch_data
+                    batch_raw_states = batch_raw_states.to(device)
+                else:  # no raw states
+                    batch_states, batch_actions = batch_data
+                    batch_raw_states = None
+
                 batch_states, batch_actions = (
                     batch_states.to(device),
                     batch_actions.to(device),
                 )
                 outputs = model(batch_states)
-                loss = criterion(outputs, batch_actions)
+                if batch_raw_states is not None:
+                    loss = criterion(outputs, batch_actions, batch_raw_states)
+                else:
+                    loss = criterion(outputs, batch_actions)
                 val_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
                 val_total += batch_actions.size(0)
@@ -260,13 +336,23 @@ def train_model(
     model.eval()
     test_loss, test_correct, test_total = 0.0, 0, 0
     with torch.no_grad():
-        for batch_states, batch_actions in test_loader:
+        for batch_data in test_loader:
+            if len(batch_data) == 3:  # includes raw states
+                batch_states, batch_actions, batch_raw_states = batch_data
+                batch_raw_states = batch_raw_states.to(device)
+            else:  # no raw states
+                batch_states, batch_actions = batch_data
+                batch_raw_states = None
+
             batch_states, batch_actions = (
                 batch_states.to(device),
                 batch_actions.to(device),
             )
             outputs = model(batch_states)
-            loss = criterion(outputs, batch_actions)
+            if batch_raw_states is not None:
+                loss = criterion(outputs, batch_actions, batch_raw_states)
+            else:
+                loss = criterion(outputs, batch_actions)
             test_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
             test_total += batch_actions.size(0)
@@ -376,8 +462,6 @@ if __name__ == "__main__":
                 f"Using subset: {data_size:,}/{total_pairs:,} state-action pairs ({percentage:.1f}% of total)"
             )
             # Randomly sample the requested amount of data
-            import numpy as np
-
             indices = np.random.choice(total_pairs, size=data_size, replace=False)
             raw_states = raw_states[indices]
             raw_actions = raw_actions[indices]
@@ -388,7 +472,7 @@ if __name__ == "__main__":
     states, actions, scaler = prepare_data(raw_states, raw_actions)
 
     # 3. Create dataset and data loaders
-    dataset = CardGameDataset(states, actions)
+    dataset = CardGameDataset(states, actions, raw_states)
     train_size = int(0.7 * len(dataset))
     val_size = int(0.15 * len(dataset))
     test_size = len(dataset) - train_size - val_size
@@ -420,6 +504,7 @@ if __name__ == "__main__":
         val_loader,
         test_loader,
         device,
+        raw_states,
         num_epochs=args.epochs,
         plot=args.plot,
         early_stopping=args.early_stopping,
