@@ -1,32 +1,122 @@
-# sts_lightspeed
+# AutoClad
 
-For tree search and simulation of the popular rogue-like deckbuilder game Slay The Spire
+Training neural network agents to play Slay the Spire using supervised learning.
 
-**Features**
-* c++ 17 compiled with gcc
-* Standalone
-* Designed to be 100% RNG accurate*
-* Playable in console
-* Speed: 1M random playouts in 5s with 16 threads
-* Loading from save files (loading into combat currently only supported)
-* Tree Search (best result, knowing the state of the game's rng)
+This project uses [sts-lightspeed](https://github.com/gamerpuppy/sts_lightspeed), a high-performance RNG-accurate C++ simulator, to generate training data and evaluate agents. The ultimate goal is to build an agent that can eventually play Ascension 20 Ironclad.
 
-**Planned Features**
-* Tree search of possible game outcomes (not given the state of rng)
+## What This Project Does
 
-**Implementation Progress**
-* All enemies
-* All relics
-* All Ironclad cards
-* All colorless cards
-* Everything outside of combat / all acts
+This currently is a **supervised learning pipeline** that trains neural network agents to play Slay the Spire:
 
-**Getting Started**
-* The project was built with Clion2021 and the [mingw64 toolchain](https://www.msys2.org/) on Windows 10
-* The main target creates a simulator of the game that can be played in console.
-* The test target creates a program with various commands that can be run, including random simulation
-* Click the star button at the top of the repo :)
+1. **Generate diverse battle scenarios** from real game data
+2. **Run a baseline agent** to collect demonstrations
+3. **Extract state-action pairs** from battle snapshots
+4. **Train a neural network** to imitate the baseline agent's behavior
+5. **Export the model** for C++ inference and evaluation
 
-**Build tips**
-* If your build fails with an error about not-return-only `constexpr` methods, ensure your compiler supports c++17.
-* If CLion shows an error about not finding python libs when loading the cmake project, try opening CLion from the msys2 shell.
+Currently focused on benchmarking different approaches.
+
+## Quick Start
+
+### Prerequisites
+
+- C++17 compiler and CMake 3.10+ (for the sts-lightspeed simulator)
+- [just](https://github.com/casey/just) (recommended for running commands)
+- Python 3.8+ with [uv](https://github.com/astral-sh/uv)
+
+### Build the Simulator
+
+```bash
+just build
+```
+
+## Training Pipeline
+
+### 1. Generate Training Scenarios
+
+Create randomized battle scenarios from real game data:
+
+```bash
+uv run randomize_scenarios.py --count 20
+```
+
+This creates variations of base scenarios by randomizing HP, deck composition, and RNG seeds.
+
+### 2. Collect Demonstration Data
+
+Run SimpleAgent on scenarios and capture battle snapshots:
+
+```bash
+just run-agent simple --snapshot --scenario=jaw_worm
+```
+
+Battle progression data is saved to `data/agent_battles/simpleagent/`.
+
+### 3. Parse Training Data
+
+Extract state-action pairs from battle snapshots:
+
+```bash
+cd AutoClad
+uv run data_parser.py
+```
+
+Creates `jaw_worm_data.npz` with feature vectors (game state) and action labels (which card was played).
+
+### 4. Train the Neural Network
+
+```bash
+cd AutoClad
+
+# Train with plotting and early stopping
+uv run main.py --plot --early-stopping
+
+# Or with default settings
+uv run main.py
+```
+
+The trained model is exported as `jaw_worm_model_traced.pt` (TorchScript format) for C++ inference.
+
+### 5. Evaluate the Trained Agent
+
+```bash
+# Requires LibTorch
+LIBTORCH_PATH=~/Downloads/libtorch just run-agent neural --scenario=jaw_worm
+```
+
+## Current Status
+
+**Working:**
+- Data generation from baseline agent demonstrations
+- Neural network training on Jaw Worm encounters
+- C++ inference with trained models
+
+**In Progress:**
+- Expanding to more encounter types
+- Improving agent performance metrics
+- Recording intermediate combat states for richer training data
+
+## The Big Picture
+
+The end goal is to train an agent that can play the full game at a high level. The approach:
+
+1. **Start with battles**: If you can predict whether you'll win specific fights, you can make better decisions about everything else (pathing, card choices, shops, etc.)
+
+2. **Generate quality data**: Available human gameplay data is incomplete and outdated. Instead, use tree search and simpler agents to generate training data.
+
+3. **Scale up with RL**: Once we have a decent baseline from supervised learning, use reinforcement learning to reach superhuman play.
+
+## Project Structure
+
+```
+├── AutoClad/                    # Neural network training code (Python)
+│   ├── main.py                  # Training script
+│   ├── data_parser.py           # Parse battle snapshots to training data
+│   └── *.pth, *.pt              # Trained models
+├── randomize_scenarios.py       # Generate randomized battle scenarios
+├── battle/
+│   ├── generated_scenarios/     # Base scenarios from real games
+│   └── randomized_scenarios/    # Training scenario variations
+├── data/agent_battles/          # Battle snapshots from agent runs
+└── [sts-lightspeed files]       # C++ simulator (apps/, src/, include/, etc.)
+
