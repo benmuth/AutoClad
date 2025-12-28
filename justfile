@@ -1,4 +1,4 @@
-# STS-AI Justfile - Common project commands
+# STS-AI Justfile - Neural Network Training and Development
 # Usage: just <command>
 
 # Default recipe that displays available commands
@@ -7,283 +7,158 @@ default:
 
 # Build configuration
 BUILD_DIR := "build"
-TEST_BUILD_DIR := "tests/build"
 
-# === Build Commands ===
+# ========================================
+# NEURAL NETWORK TRAINING PIPELINE
+# ========================================
+# Complete workflow: randomize-scenarios → generate-data → parse-data → train → run-neural-agent
 
-# Build the main project (creates main, test, small-test, and battle executables)
-build:
-    mkdir -p {{BUILD_DIR}}
-    cd {{BUILD_DIR}} && cmake .. && make
+# Step 1: Generate randomized battle scenarios for training data
+# Example: just randomize-scenarios 20
+randomize-scenarios count="20":
+    @echo "Generating {{count}} randomized scenarios per base scenario..."
+    uv run randomize_scenarios.py --count {{count}}
 
-# Clean and rebuild everything
-rebuild: clean build
+# Step 2: Generate training data by running battles and saving snapshots
+# Example: just generate-data
+generate-data:
+    @echo "Running simple agent battles to generate training data..."
+    just run battle-agent simple --snapshot --scenario=jaw_worm
 
-# Clean build artifacts
-clean:
-    rm -r {{BUILD_DIR}}
-    rm -r {{TEST_BUILD_DIR}}
+# Step 3: Parse battle snapshots into numpy arrays for training
+# Example: just parse-data
+parse-data:
+    @echo "Parsing battle snapshots into training data..."
+    cd AutoClad && uv run data_parser.py
 
-# Build optimized release version
-build-release:
-    mkdir -p {{BUILD_DIR}}
-    cd {{BUILD_DIR}} && cmake -DCMAKE_BUILD_TYPE=Release .. && make
+# Step 4: Train the neural network model with custom arguments
+# Example: just train --plot --early-stopping --epochs 300
+train *ARGS:
+    @echo "Training neural network model..."
+    cd AutoClad && uv run main.py {{ARGS}}
 
-# Build debug version with debug symbols
-build-debug:
-    mkdir -p {{BUILD_DIR}}
-    cd {{BUILD_DIR}} && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-g -O0" .. && make
-
-# === Test Commands ===
-
-# Build test infrastructure (snapshot generator)
-build-tests:
-    mkdir -p {{TEST_BUILD_DIR}}
-    #!/usr/bin/env bash
-    cd {{TEST_BUILD_DIR}} && cmake .. && make
-
-# Run the main test suite (requires arguments)
-test *ARGS:
-    just build
-    ./{{BUILD_DIR}}/test {{ARGS}}
-
-# Run small test executable
-test-small:
-    just build
-    ./{{BUILD_DIR}}/small-test
-
-# Run multi-threaded agent test (threads, depth, ascension, seed, count, print)
-test-agent threads depth ascension seed count print="1":
-    just build
-    ./{{BUILD_DIR}}/test agent_mt {{threads}} {{depth}} {{ascension}} {{seed}} {{count}} {{print}}
-
-# Run simple agent test (threads, seed, count, print)
-test-simple-agent threads seed count print="1":
-    just build
-    ./{{BUILD_DIR}}/test simple_agent_mt {{threads}} {{seed}} {{count}} {{print}}
-
-# Run neural network agent test (threads, seed, count, print) - requires LibTorch
-test-neural-agent threads seed count print="1":
-    just build-battle-agent
-    ./{{BUILD_DIR}}/test neural_agent_mt {{threads}} {{seed}} {{count}} {{print}}
-
-# Build with LibTorch support (set LIBTORCH_PATH environment variable)
-build-with-libtorch:
-    mkdir -p {{BUILD_DIR}}
-    cd {{BUILD_DIR}} && cmake -DCMAKE_PREFIX_PATH="${LIBTORCH_PATH}" .. && make battle-agent
-
-# Train neural network model and export for C++
-train-neural-model:
-    cd AutoClad && uv run main.py
-
-# Train neural network with custom epochs
-train-neural epochs="100":
-    cd AutoClad && uv run main.py --epochs {{epochs}}
-
-# Test neural network integration components
-test-neural:
-    cd AutoClad && uv run python test_neural_integration.py
-
-# Run neural agent with CommunicationMod protocol (requires trained model)
+# Step 5: Run the trained neural agent via CommunicationMod protocol
+# Example: just run-neural-agent
 run-neural-agent:
-    cd AutoClad && uv run python neural_agent.py
+    @echo "Running trained neural agent..."
+    cd AutoClad && uv run neural_agent.py
 
-# Run MCTS test from save file
-test-mcts savefile simulations:
-    just build
-    ./{{BUILD_DIR}}/test mcts_save {{savefile}} {{simulations}}
+# Complete pipeline from scratch (all steps combined)
+# Example: just pipeline 20
+pipeline count="20":
+    @echo "=== Starting complete ML pipeline ==="
+    just randomize-scenarios {{count}}
+    just generate-data
+    just parse-data
+    just train --plot --early-stopping
+    @echo "=== Pipeline complete! Test with: just run-neural-agent ==="
 
-# Generate combat snapshot for testing
-snapshot scenario output:
-    just build-tests
-    ./{{TEST_BUILD_DIR}}/snapshot_generator {{scenario}} {{output}}
-    
-# Generate basic combat snapshot
-snapshot-basic:
-    just build-tests
-    mkdir -p tests/snapshots/basic_combat
-    ./{{TEST_BUILD_DIR}}/snapshot_generator tests/scenarios/basic_strike_combat.json tests/snapshots/basic_combat/basic_strike_combat.snap
+# ========================================
+# BUILD COMMANDS
+# ========================================
 
-# Run snapshot test script (compare normal vs battle-only builds)
-snapshot-test:
-    ./snapshot_test.sh
-
-# Test snapshot determinism (run multiple times and compare)
-test-determinism:
-    just build-tests
-    mkdir -p tests/snapshots/determinism
-    ./{{TEST_BUILD_DIR}}/snapshot_generator tests/scenarios/basic_strike_combat.json tests/snapshots/determinism/run1.snap
-    ./{{TEST_BUILD_DIR}}/snapshot_generator tests/scenarios/basic_strike_combat.json tests/snapshots/determinism/run2.snap
-    ./{{TEST_BUILD_DIR}}/snapshot_generator tests/scenarios/basic_strike_combat.json tests/snapshots/determinism/run3.snap
-    diff tests/snapshots/determinism/run1.snap tests/snapshots/determinism/run2.snap
-    diff tests/snapshots/determinism/run2.snap tests/snapshots/determinism/run3.snap
-    @echo "✓ Snapshots are deterministic!"
-
-# === Run Commands ===
-
-# Run the main interactive simulator
-run:
-    just build
-    ./{{BUILD_DIR}}/main
-
-# Run the standalone battle executable
-battle:
-    just build
-    ./{{BUILD_DIR}}/battle
-
-# Run battle with custom fight JSON file
-battle-with-fight fight_json:
-    just build
-    cp {{fight_json}} battle/sample_fight.json
-    ./{{BUILD_DIR}}/battle
-
-# Build only the battle executable
-build-battle:
-    mkdir -p {{BUILD_DIR}}
-    cd {{BUILD_DIR}} && cmake .. && make battle
-
-# Build only the battle-agent executable
-build-battle-agent:
-    mkdir -p {{BUILD_DIR}}
-    cd {{BUILD_DIR}} && cmake .. && make battle-agent
-
-# Run battle-agent with specified agent type (simple, autoclad, neural)
-run-agent agent *ARGS:
+# Build C++ executables with options
+# target: all (default), battle-agent, battle, or any executable name
+# type: release (default), debug
+# libtorch: false (default), true (requires LIBTORCH_PATH env var)
+# Examples:
+#   just build                           # Build all executables
+#   just build battle-agent              # Build only battle-agent
+#   just build all debug                 # Build all with debug symbols
+#   just build battle-agent release true # Build battle-agent with LibTorch
+build target="all" type="release" libtorch="false":
     #!/usr/bin/env bash
-    if [ "{{agent}}" = "neural" ]; then
-        LIBTORCH_PATH=~/Downloads/libtorch just build-with-libtorch
-        DYLD_LIBRARY_PATH=~/Downloads/libtorch/lib ./{{BUILD_DIR}}/battle-agent --agent={{agent}} {{ARGS}}
+    mkdir -p {{BUILD_DIR}}
+    cd {{BUILD_DIR}}
+
+    # Set CMake flags based on build type
+    if [ "{{type}}" = "debug" ]; then
+        CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=\"-g -O0\""
     else
-        just build-battle-agent
-        ./{{BUILD_DIR}}/battle-agent --agent={{agent}} {{ARGS}}
+        CMAKE_FLAGS=""
     fi
 
-# Run battle-agent with snapshot output (requires agent type)
-battle-agent-snapshot agent:
-    just build-battle-agent
-    ./{{BUILD_DIR}}/battle-agent --agent={{agent}} --snapshot
+    # Add LibTorch support if requested
+    if [ "{{libtorch}}" = "true" ]; then
+        if [ -z "${LIBTORCH_PATH}" ]; then
+            echo "Error: LIBTORCH_PATH environment variable not set"
+            exit 1
+        fi
+        CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_PREFIX_PATH=${LIBTORCH_PATH}"
+    fi
 
-# Test agent quickly (first 10 scenarios)
-test-agent-quick agent:
-    just run-agent {{agent}} 2>/dev/null | head -50
+    # Build
+    eval cmake $CMAKE_FLAGS .. && make {{target}}
 
-# Compare agent performance by running both SimpleAgent and NeuralNetAgent
-compare-agents:
-    @echo "Running SimpleAgent (first 5 scenarios)..."
-    just run-agent simple 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
-    @echo "Running NeuralNetAgent (first 5 scenarios)..."
-    just run-agent neural 2>/dev/null | head -25 | grep -E "(AGENT:|Initial State:|Running agent)"
-
-# Validate fight JSON syntax
-validate-fight-json fight_json:
-    @echo "Validating JSON syntax for {{fight_json}}..."
-    @python3 -m json.tool {{fight_json}} > /dev/null && echo "✓ Valid JSON syntax" || echo "✗ Invalid JSON syntax"
-
-# Run simulator with save file replay
-run-save savefile actionfile:
-    just build
-    ./{{BUILD_DIR}}/test save {{savefile}} {{actionfile}}
-
-# Run replay from seed and ascension
-run-replay seed ascension actionfile:
-    just build
-    ./{{BUILD_DIR}}/test replay {{seed}} {{ascension}} {{actionfile}}
-
-# === Development Commands ===
-
-# Check project structure and files
-check:
-    @echo "Project structure:"
-    @find . -name "*.cpp" -o -name "*.h" | head -20
-    @echo "\nBuild files:"
-    @ls -la {{BUILD_DIR}} 2>/dev/null || echo "Build directory not found"
-    @echo "\nExecutables:"
-    @ls -la {{BUILD_DIR}}/{main,test,small-test,battle} 2>/dev/null || echo "Some executables not found"
-    @echo "\nTest files:"
-    @ls -la {{TEST_BUILD_DIR}} 2>/dev/null || echo "Test build directory not found"
-
-# Show project statistics
-stats:
-    @echo "Lines of code:"
-    @find src include -name "*.cpp" -o -name "*.h" | xargs wc -l | tail -1
-    @echo "\nFile counts:"
-    @echo "Headers: $(find include -name "*.h" | wc -l)"
-    @echo "Sources: $(find src -name "*.cpp" | wc -l)"
-    @echo "Apps: $(find apps -name "*.cpp" | wc -l)"
-
-# Format code (if clang-format is available)
-format:
-    find src include apps tests/utils -name "*.cpp" -o -name "*.h" | xargs clang-format -i
-
-# === Utility Commands ===
-
-# Show all available executables and their purposes
-executables:
-    @echo "Available executables:"
-    @echo "  main         - Interactive console simulator for manual gameplay"
-    @echo "  test         - Comprehensive test runner with multiple commands"
-    @echo "  small-test   - Minimal test executable for quick testing"
-    @echo "  battle       - Standalone battle context simulator with SimpleAgent"
-    @echo "  battle-agent - Battle simulation with agents (simple, autoclad, neural)"
-    @echo ""
-    @echo "Usage examples:"
-    @echo "  just run            # Run interactive simulator"
-    @echo "  just battle         # Run standalone battle simulation"
-    @echo "  just test-small     # Run minimal test"
-    @echo "  just run-agent simple  # Run simple agent on all scenarios"
-    @echo "  just run-agent neural --scenario=jaw_worm  # Run neural agent on jaw_worm scenarios"
-    @echo "  just test agent_mt 1 1 0 1984 1 true  # Run AI agent test"
-    @echo "  just train-neural-model  # Train neural network model"
-    @echo "  just test-neural    # Test neural network integration"
-    @echo "  just run-neural-agent   # Run neural CommunicationMod agent"
-
-# Show available test commands
-test-help:
-    just build
-    @echo "Available test commands:"
-    @echo "  agent_mt <threads> <depth> <ascension> <seed> <count> <print>"
-    @echo "  simple_agent_mt <threads> <seed> <count> [print]"
-    @echo "  neural_agent_mt <threads> <seed> <count> [print]   # Requires LibTorch"
-    @echo "  mcts_save <savefile> <simulations>"
-    @echo "  save <savefile> <actionfile>"
-    @echo "  replay <seed> <ascension> <actionfile>"
-
-# Clean all build artifacts and temporary files
-clean-all: clean
+# Clean all build artifacts
+clean:
+    rm -rf {{BUILD_DIR}}
     find . -name "*.o" -delete
     find . -name "*.a" -delete
-    find . -name "core" -delete
-    rm -f tests/snapshots/determinism/*.snap
 
-# Create a new combat scenario template
-new-scenario name:
-    @echo '{\n    "name": "{{name}}",\n    "description": "Description here",\n    "seed": 12345,\n    "ascension": 0,\n    "floor": 1,\n    "initial_state": {\n        "player_hp": 80,\n        "player_max_hp": 80,\n        "character_class": "IRONCLAD",\n        "encounter": "CULTIST",\n        "deck": ["STRIKE", "STRIKE", "STRIKE", "STRIKE", "STRIKE", "DEFEND", "DEFEND", "DEFEND", "DEFEND", "BASH"],\n        "relics": [],\n        "potions": []\n    },\n    "action_sequence": ["play_card_0", "end_turn"]\n}' > tests/scenarios/{{name}}.json
-    @echo "Created tests/scenarios/{{name}}.json"
+# ========================================
+# RUNNING AGENTS AND TESTS
+# ========================================
 
-# === Scenario Generation Commands ===
+# Run C++ executables with options
+# exe: main (interactive), battle, battle-agent, test, small-test
+# For battle-agent, specify agent: simple, autoclad, neural
+# Examples:
+#   just run main                          # Interactive simulator
+#   just run battle                        # Standalone battle
+#   just run battle-agent simple           # Simple agent
+#   just run battle-agent simple --snapshot --scenario=jaw_worm
+#   just run battle-agent neural --scenario=jaw_worm
+#   just run test agent_mt 1 1 0 1984 1 1 # Test with args
+run exe *ARGS:
+    #!/usr/bin/env bash
+    if [ "{{exe}}" = "battle-agent" ]; then
+        # Extract agent type from first arg
+        agent="${1:-simple}"
+        shift || true  # Remove agent from args
 
-# Generate scenario objects from run data (analysis only)
-generate-scenarios-analysis input_dir:
-    uv run data/scenarios-from-runs.py {{input_dir}}
+        if [ "$agent" = "neural" ]; then
+            echo "Building battle-agent with LibTorch..."
+            just build battle-agent release true
+            DYLD_LIBRARY_PATH=${LIBTORCH_PATH}/lib ./{{BUILD_DIR}}/battle-agent --agent=$agent "$@"
+        else
+            just build battle-agent
+            ./{{BUILD_DIR}}/battle-agent --agent=$agent "$@"
+        fi
+    else
+        just build {{exe}}
+        ./{{BUILD_DIR}}/{{exe}} {{ARGS}}
+    fi
 
-# Generate scenario files from run data
-generate-scenarios input_dir output_dir:
-    uv run data/scenarios-from-runs.py {{input_dir}} {{output_dir}}
+# ========================================
+# GAME VERIFICATION (DEVELOPMENT)
+# ========================================
 
-# Generate scenarios from ironclad runs to battle/generated_scenarios/
-generate-scenarios-ironclad:
-    uv run data/scenarios-from-runs.py data/2019-runs-json-ironclad/ battle/generated_scenarios/
+# Replay game from save file with action sequence
+# Used for verifying game logic correctness
+# Example: just replay-save saves/ironclad_run.json actions.txt
+replay-save savefile actionfile:
+    just run test save {{savefile}} {{actionfile}}
 
-# Generate scenarios from ironclad runs to battle/generated_scenarios/ (force delete existing files)
-generate-scenarios-ironclad-force:
-    uv run data/scenarios-from-runs.py data/2019-runs-json-ironclad/ battle/generated_scenarios/ --force
+# Replay game from seed and ascension with action sequence
+# Used for verifying deterministic game behavior
+# Example: just replay-seed 12345 0 actions.txt
+replay-seed seed ascension actionfile:
+    just run test replay {{seed}} {{ascension}} {{actionfile}}
 
-# Example recipes for common development workflows
-example-workflow:
-    @echo "Example development workflow:"
-    @echo "1. just clean-all    # Clean everything"
-    @echo "2. just build        # Build main project"
-    @echo "3. just build-tests  # Build test infrastructure"
-    @echo "4. just snapshot-basic # Generate basic snapshot"
-    @echo "5. just test-determinism # Verify determinism"
-    @echo "6. just run          # Run interactive simulator"
+# ========================================
+# SCENARIO GENERATION (ONE-TIME SETUP)
+# ========================================
+
+# Generate base scenarios from replay data (ONE-TIME SETUP)
+# This converts game replay JSON files into battle scenario files
+# force: false (default), true (delete existing output directory)
+# Example: just generate-scenarios data/2019-runs-json-ironclad/ battle/generated_scenarios/
+# Example with force: just generate-scenarios data/2019-runs-json-ironclad/ battle/generated_scenarios/ true
+generate-scenarios input_dir output_dir="battle/generated_scenarios/" force="false":
+    #!/usr/bin/env bash
+    if [ "{{force}}" = "true" ]; then
+        uv run data/scenarios-from-runs.py {{input_dir}} {{output_dir}} --force
+    else
+        uv run data/scenarios-from-runs.py {{input_dir}} {{output_dir}}
+    fi
