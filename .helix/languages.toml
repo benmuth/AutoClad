@@ -1,0 +1,11 @@
+[[language]]
+name = "sts-run"
+scope = "source.run"
+file-types = ["run"]
+language-servers = [ "sts-run-lsp"]
+
+# this isn't working right now
+# 'format': A formatter isn't available, and no language server provides formatting capabilities
+[language-server.sts-run-lsp]
+command = "/Users/ben/Library/pnpm/vscode-json-language-server"
+config = { "provideFormatter" = true, "json" = { "keepLines" = { "enable" = true } } }
